@@ -153,47 +153,73 @@ trait ComponentRenderer {
 			$data = call_user_func( $component['data_callback'], $this->date_range, $component );
 		}
 
-		$value            = $data['value'] ?? 0;
+		$value          = $data['value'] ?? 0;
+		$previous_value = $data['previous_value'] ?? null;
+		$label          = $component['title'] ?? '';
+		$icon_color     = $component['icon_color'] ?? 'gray';
+
+		// Auto-calculate change if previous_value is provided and both are numeric
 		$change           = $data['change'] ?? null;
 		$change_direction = $data['change_direction'] ?? null;
-		$label            = $component['title'] ?? '';
-		$icon_color       = $component['icon_color'] ?? 'gray';
+
+		if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+			$change = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
+			$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
+			$change = abs( $change );
+		}
+
+		// Get period label from date range
+		$period_label = $this->get_period_label();
+
+		// Normalize icon - allow both 'dashicons-money' and 'money'
+		$icon = $component['icon'] ?? '';
+		if ( $icon && strpos( $icon, 'dashicons-' ) !== 0 ) {
+			$icon = 'dashicons-' . $icon;
+		}
 
 		?>
 		<div class="reports-tile"
 		     data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
 			<div class="reports-tile-header">
-				<?php if ( ! empty( $component['icon'] ) ) : ?>
+				<?php if ( $icon ) : ?>
 					<span class="reports-tile-icon icon-<?php echo esc_attr( $icon_color ); ?>">
-						<span class="dashicons <?php echo esc_attr( $component['icon'] ); ?>"></span>
+						<span class="dashicons <?php echo esc_attr( $icon ); ?>"></span>
 					</span>
 				<?php endif; ?>
 				<span class="reports-tile-label"><?php echo esc_html( $label ); ?></span>
 			</div>
 
 			<div class="reports-tile-value">
-				<?php echo esc_html( $this->format_value( $value, $component['value_format'] ?? 'number' ) ); ?>
+				<?php echo esc_html( $this->format_value( $value, $component['value_format'] ?? 'number', $component ) ); ?>
 			</div>
 
-			<?php if ( $change !== null && $change_direction ) : ?>
-				<?php
-				$change_class = 'change-neutral';
-				$change_icon  = 'minus';
+			<div class="reports-tile-footer">
+				<?php if ( $change !== null && $change_direction ) : ?>
+					<?php
+					$change_class = 'change-neutral';
+					$change_icon  = 'minus';
 
-				if ( $change_direction === 'up' ) {
-					$change_class = 'change-up';
-					$change_icon  = 'arrow-up-alt';
-				} elseif ( $change_direction === 'down' ) {
-					$change_class = 'change-down';
-					$change_icon  = 'arrow-down-alt';
-				}
-				?>
-				<div class="reports-tile-change <?php echo esc_attr( $change_class ); ?>">
-					<span class="dashicons dashicons-<?php echo esc_attr( $change_icon ); ?>"></span>
-					<?php echo esc_html( abs( $change ) . '%' ); ?>
-				</div>
-			<?php endif; ?>
+					if ( $change_direction === 'up' ) {
+						$change_class = 'change-up';
+						$change_icon  = 'arrow-up-alt';
+					} elseif ( $change_direction === 'down' ) {
+						$change_class = 'change-down';
+						$change_icon  = 'arrow-down-alt';
+					}
+					?>
+					<div class="reports-tile-change <?php echo esc_attr( $change_class ); ?>">
+						<span class="dashicons dashicons-<?php echo esc_attr( $change_icon ); ?>"></span>
+						<?php echo esc_html( number_format( $change, 1 ) . '%' ); ?>
+					</div>
+				<?php else : ?>
+					<div class="reports-tile-change change-neutral"></div>
+				<?php endif; ?>
+
+				<?php if ( $period_label ) : ?>
+					<span class="reports-tile-period"><?php echo esc_html( $period_label ); ?></span>
+				<?php endif; ?>
+			</div>
 		</div>
 		<?php
 	}
@@ -274,8 +300,14 @@ trait ComponentRenderer {
 		     data-ajax-refresh="<?php echo $component['ajax_refresh'] ? 'true' : 'false'; ?>">
 
 			<?php if ( ! empty( $component['title'] ) ) : ?>
+				<?php $period_label = $this->get_period_label(); ?>
 				<div class="reports-chart-header">
-					<h3 class="reports-chart-title"><?php echo esc_html( $component['title'] ); ?></h3>
+					<h3 class="reports-chart-title">
+						<?php echo esc_html( $component['title'] ); ?>
+						<?php if ( $period_label ) : ?>
+							<span class="reports-chart-period">— <?php echo esc_html( $period_label ); ?></span>
+						<?php endif; ?>
+					</h3>
 					<?php if ( ! empty( $component['description'] ) ) : ?>
 						<p class="reports-chart-description"><?php echo esc_html( $component['description'] ); ?></p>
 					<?php endif; ?>
@@ -379,26 +411,20 @@ trait ComponentRenderer {
 		$columns       = $component['columns'] ?? [];
 		$rows          = $data['rows'] ?? $data ?? [];
 		$empty_message = $component['empty_message'] ?? __( 'No data available.', 'reports' );
+		$row_actions   = $component['row_actions'] ?? [];
 
 		$width_class = $this->get_width_class( $component['width'] ?? 'full' );
 
 		?>
 		<div class="reports-table-wrapper <?php echo esc_attr( $width_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
 		     data-component-id="<?php echo esc_attr( $component_id ); ?>"
-		     data-ajax-refresh="<?php echo $component['ajax_refresh'] ? 'true' : 'false'; ?>">
+		     data-ajax-refresh="<?php echo ! empty( $component['ajax_refresh'] ) ? 'true' : 'false'; ?>">
 
 			<?php if ( ! empty( $component['title'] ) ) : ?>
 				<div class="reports-table-header">
 					<h3 class="reports-table-title"><?php echo esc_html( $component['title'] ); ?></h3>
 					<?php if ( ! empty( $component['description'] ) ) : ?>
 						<p class="reports-table-description"><?php echo esc_html( $component['description'] ); ?></p>
-					<?php endif; ?>
-
-					<?php if ( ! empty( $component['searchable'] ) ) : ?>
-						<div class="reports-table-search">
-							<input type="search" placeholder="<?php esc_attr_e( 'Search...', 'reports' ); ?>"
-							       class="reports-table-search-input"/>
-						</div>
 					<?php endif; ?>
 				</div>
 			<?php endif; ?>
@@ -422,6 +448,9 @@ trait ComponentRenderer {
 								<?php echo esc_html( $column_label ); ?>
 							</th>
 						<?php endforeach; ?>
+						<?php if ( ! empty( $row_actions ) ) : ?>
+							<th class="reports-table-actions-col"><?php esc_html_e( 'Actions', 'reports' ); ?></th>
+						<?php endif; ?>
 					</tr>
 					</thead>
 					<tbody>
@@ -440,6 +469,11 @@ trait ComponentRenderer {
 									<?php echo wp_kses_post( $cell_value ); ?>
 								</td>
 							<?php endforeach; ?>
+							<?php if ( ! empty( $row_actions ) ) : ?>
+								<td class="reports-table-actions">
+									<?php $this->render_row_actions( $row_actions, $row ); ?>
+								</td>
+							<?php endif; ?>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -447,7 +481,8 @@ trait ComponentRenderer {
 
 				<?php if ( ! empty( $component['paginated'] ) && count( $rows ) > ( $component['per_page'] ?? 10 ) ) : ?>
 					<div class="reports-table-pagination">
-						<!-- Pagination will be handled by JS -->
+						<span class="reports-table-info"></span>
+						<div class="reports-table-pages"></div>
 					</div>
 				<?php endif; ?>
 			<?php endif; ?>
@@ -457,6 +492,54 @@ trait ComponentRenderer {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render row actions for a table row.
+	 *
+	 * @param array $actions Action definitions.
+	 * @param array $row     Row data.
+	 *
+	 * @return void
+	 */
+	protected function render_row_actions( array $actions, array $row ): void {
+		$action_links = [];
+
+		foreach ( $actions as $action_key => $action ) {
+			$label   = $action['label'] ?? ucfirst( $action_key );
+			$class   = $action['class'] ?? '';
+			$confirm = $action['confirm'] ?? '';
+			$url     = '#';
+
+			// Get URL from callback or template
+			if ( ! empty( $action['url_callback'] ) && is_callable( $action['url_callback'] ) ) {
+				$url = call_user_func( $action['url_callback'], $row );
+			} elseif ( ! empty( $action['url'] ) ) {
+				// Replace {placeholders} with row values
+				$url = $action['url'];
+				foreach ( $row as $key => $value ) {
+					if ( is_scalar( $value ) ) {
+						$url = str_replace( '{' . $key . '}', urlencode( (string) $value ), $url );
+					}
+				}
+			}
+
+			// Build attributes
+			$attrs = sprintf( 'href="%s"', esc_url( $url ) );
+			$attrs .= sprintf( ' class="reports-row-action reports-row-action-%s %s"', esc_attr( $action_key ), esc_attr( $class ) );
+
+			if ( $confirm ) {
+				$attrs .= sprintf( ' onclick="return confirm(\'%s\')"', esc_js( $confirm ) );
+			}
+
+			if ( ! empty( $action['target'] ) ) {
+				$attrs .= sprintf( ' target="%s"', esc_attr( $action['target'] ) );
+			}
+
+			$action_links[] = sprintf( '<a %s>%s</a>', $attrs, esc_html( $label ) );
+		}
+
+		echo '<div class="reports-row-actions-wrap">' . implode( ' <span class="sep">|</span> ', $action_links ) . '</div>';
 	}
 
 	/**
@@ -516,16 +599,17 @@ trait ComponentRenderer {
 	 * Uses wp-date-utils library for date formatting.
 	 *
 	 * @param mixed  $value    The value to format.
-	 * @param string $format   The format type.
-	 * @param string $currency Currency code for currency formatting.
+	 * @param string $format    The format type.
+	 * @param array  $component Component configuration (for currency option).
 	 *
 	 * @return string
 	 */
-	protected function format_value( $value, string $format, string $currency = 'USD' ): string {
+	protected function format_value( $value, string $format, array $component = [] ): string {
 		switch ( $format ) {
 			case 'currency':
 				// Use wp-currencies library (amounts should be in cents)
-				$cents = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
+				$cents    = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
+				$currency = $component['currency'] ?? 'USD';
 
 				return format_currency( $cents, $currency );
 

@@ -118,6 +118,9 @@ class Reports {
 			'custom'     => 'Custom Range',
 		],
 		'default_preset'   => 'this_month',
+		// Refresh options
+		'auto_refresh'     => 0,     // Seconds between auto-refresh. 0 = disabled
+		'show_refresh'     => true,  // Show manual refresh button
 		// Help screen options
 		'help_tabs'        => [],
 		'help_sidebar'     => '',
@@ -299,9 +302,11 @@ class Reports {
 	 * @return void
 	 */
 	protected function render_header( string $current_tab ): void {
-		$logo_url     = $this->config['logo'] ?? '';
-		$header_title = ! empty( $this->config['header_title'] ) ? $this->config['header_title'] : $this->config['page_title'];
-		$show_title   = $this->config['show_title'] ?? true;
+		$logo_url      = $this->config['logo'] ?? '';
+		$header_title  = ! empty( $this->config['header_title'] ) ? $this->config['header_title'] : $this->config['page_title'];
+		$show_title    = $this->config['show_title'] ?? true;
+		$show_refresh  = $this->config['show_refresh'] ?? true;
+		$auto_refresh  = (int) ( $this->config['auto_refresh'] ?? 0 );
 
 		?>
 		<div class="reports-header">
@@ -315,11 +320,28 @@ class Reports {
 					<?php endif; ?>
 				</div>
 
-				<?php if ( $this->config['show_date_picker'] ) : ?>
-					<div class="reports-header-actions">
+				<div class="reports-header-actions">
+					<?php if ( $show_refresh || $auto_refresh > 0 ) : ?>
+						<div class="reports-refresh-controls"
+						     data-auto-refresh="<?php echo esc_attr( $auto_refresh ); ?>"
+						     data-report-id="<?php echo esc_attr( $this->id ); ?>">
+							<?php if ( $auto_refresh > 0 ) : ?>
+								<span class="reports-last-updated">
+									<span class="reports-last-updated-text"><?php esc_html_e( 'Updated just now', 'reports' ); ?></span>
+								</span>
+							<?php endif; ?>
+							<?php if ( $show_refresh ) : ?>
+								<button type="button" class="reports-refresh-button" title="<?php esc_attr_e( 'Refresh', 'reports' ); ?>">
+									<span class="dashicons dashicons-update"></span>
+								</button>
+							<?php endif; ?>
+						</div>
+					<?php endif; ?>
+
+					<?php if ( $this->config['show_date_picker'] ) : ?>
 						<?php $this->render_date_picker(); ?>
-					</div>
-				<?php endif; ?>
+					<?php endif; ?>
+				</div>
 			</div>
 
 			<?php if ( $this->config['show_tabs'] && ! empty( $this->tabs ) ) : ?>

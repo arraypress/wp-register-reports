@@ -178,9 +178,12 @@ trait ExportHandler {
 	protected function render_exports_section( array $exports ): void {
 		?>
 		<div class="reports-exports-section">
-			<?php foreach ( $exports as $export_id => $export ) : ?>
-				<?php $this->render_export_card( $export_id, $export ); ?>
-			<?php endforeach; ?>
+			<h3 class="reports-exports-section-title"><?php esc_html_e( 'Export', 'developer-portal' ); ?></h3>
+			<div class="reports-exports-grid">
+				<?php foreach ( $exports as $export_id => $export ) : ?>
+					<?php $this->render_export_card( $export_id, $export ); ?>
+				<?php endforeach; ?>
+			</div>
 		</div>
 		<?php
 	}
@@ -194,16 +197,17 @@ trait ExportHandler {
 	 * @return void
 	 */
 	protected function render_export_card( string $export_id, array $export ): void {
+		// Normalize icon - allow both 'dashicons-download' and 'download'
+		$icon = $export['icon'] ?? 'download';
+		if ( strpos( $icon, 'dashicons-' ) !== 0 ) {
+			$icon = 'dashicons-' . $icon;
+		}
+
 		?>
 		<div class="reports-export-card" data-export-id="<?php echo esc_attr( $export_id ); ?>">
-			<div class="reports-export-header">
-				<?php if ( ! empty( $export['icon'] ) ) : ?>
-					<span class="dashicons <?php echo esc_attr( $export['icon'] ); ?>"></span>
-				<?php else : ?>
-					<span class="dashicons dashicons-download"></span>
-				<?php endif; ?>
-				<h3><?php echo esc_html( $export['title'] ?? __( 'Export Data', 'developer-portal' ) ); ?></h3>
-			</div>
+			<h4 class="reports-export-title">
+				<?php echo esc_html( $export['title'] ?? __( 'Export Data', 'developer-portal' ) ); ?>
+			</h4>
 
 			<?php if ( ! empty( $export['description'] ) ) : ?>
 				<p class="reports-export-description">
@@ -222,23 +226,18 @@ trait ExportHandler {
 				<div class="reports-export-progress-bar">
 					<div class="reports-export-progress-fill"></div>
 				</div>
-				<div class="reports-export-progress-text">
-					<span class="reports-export-progress-label"><?php esc_html_e( 'Preparing export...', 'developer-portal' ); ?></span>
+				<div class="reports-export-progress-info">
+					<span class="reports-export-progress-label"><?php esc_html_e( 'Preparing...', 'developer-portal' ); ?></span>
 					<span class="reports-export-progress-percent">0%</span>
 				</div>
 			</div>
 
-			<div class="reports-export-actions">
-				<button type="button"
-				        class="button button-primary reports-export-button"
-				        data-export-id="<?php echo esc_attr( $export_id ); ?>"
-				        data-report-id="<?php echo esc_attr( $this->id ); ?>">
-					<span class="dashicons dashicons-download"></span>
-					<span class="button-text">
-						<?php echo esc_html( $export['button_text'] ?? __( 'Download CSV', 'developer-portal' ) ); ?>
-					</span>
-				</button>
-			</div>
+			<button type="button"
+			        class="button button-primary reports-export-button"
+			        data-export-id="<?php echo esc_attr( $export_id ); ?>"
+			        data-report-id="<?php echo esc_attr( $this->id ); ?>">
+				<?php echo esc_html( $export['button_text'] ?? __( 'Generate CSV', 'developer-portal' ) ); ?>
+			</button>
 		</div>
 		<?php
 	}

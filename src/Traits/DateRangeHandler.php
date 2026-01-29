@@ -239,4 +239,35 @@ trait DateRangeHandler {
 		return Dates::diff( $date_range['start'], $date_range['end'], 'days' ) + 1;
 	}
 
+	/**
+	 * Get a human-readable label for the current period.
+	 *
+	 * @return string
+	 */
+	protected function get_period_label(): string {
+		$preset  = $this->date_range['preset'] ?? 'this_month';
+		$presets = $this->get_date_range_options();
+
+		// Return the preset label if found
+		if ( isset( $presets[ $preset ] ) && $preset !== 'custom' ) {
+			return $presets[ $preset ];
+		}
+
+		// For custom, return the date range
+		if ( $preset === 'custom' ) {
+			$start = $this->date_range['start_local'] ?? '';
+			$end   = $this->date_range['end_local'] ?? '';
+
+			if ( $start && $end ) {
+				return sprintf(
+					'%s — %s',
+					date_i18n( 'M j, Y', strtotime( $start ) ),
+					date_i18n( 'M j, Y', strtotime( $end ) )
+				);
+			}
+		}
+
+		return '';
+	}
+
 }

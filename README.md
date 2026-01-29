@@ -1,24 +1,26 @@
-# WP Register Reports
+# WordPress Reports Registration Library
 
-A WordPress library for registering report pages with charts, tiles, tables, and CSV export functionality. Built with a similar architecture to the settings fields library, providing a clean registration API for creating analytics dashboards.
+A comprehensive WordPress library for creating beautiful, feature-rich admin report pages with tiles, charts, tables, and CSV exports.
 
 ## Features
 
-- **Modern Header** - Branded header with logo, title, tabs, and date picker
-- **Date Range Picker** - Presets (Today, Yesterday, This Week, Last Week, etc.) plus custom range
-- **Tiles/Stat Cards** - Display KPIs with comparison data and trend indicators
-- **Charts** - Line, bar, pie, doughnut, and area charts via Chart.js
-- **Tables** - Sortable, searchable, paginated data tables
-- **CSV Exports** - Configurable exports with filter metaboxes
-- **REST API** - AJAX component refresh support
-- **Responsive** - Mobile-friendly design
-- **UTC/Timezone Aware** - Proper handling of date ranges with local display and UTC storage
+- **Tiles** - Display key metrics with icons, colors, comparison percentages, and period labels
+- **Charts** - Line, bar, pie, doughnut charts powered by Chart.js
+- **Tables** - Sortable, paginated tables with row actions
+- **Exports** - Batched CSV exports with filters and progress tracking
+- **Date Picker** - Preset ranges (Today, This Week, This Month, etc.) or custom dates
+- **Tabbed Interface** - Organize reports into logical sections
+- **AJAX Refresh** - Manual or auto-refresh without page reload
+- **EDD-style Header** - Modern full-width header with logo support
 
 ## Requirements
 
 - PHP 7.4+
-- WordPress 5.9+
-- Composer
+- WordPress 5.8+
+- Composer dependencies:
+  - `arraypress/wp-composer-assets`
+  - `arraypress/wp-date-utils`
+  - `arraypress/wp-currencies`
 
 ## Installation
 
@@ -26,390 +28,435 @@ A WordPress library for registering report pages with charts, tiles, tables, and
 composer require arraypress/wp-register-reports
 ```
 
-## Dependencies
-
-This library uses the following ArrayPress libraries:
-
-- **[wp-date-utils](https://github.com/arraypress/wp-date-utils)** - UTC/local timezone handling for date ranges
-- **[wp-currencies](https://github.com/arraypress/wp-currencies)** - Currency formatting with Stripe compatibility
-- **[wp-composer-assets](https://github.com/arraypress/wp-composer-assets)** - Asset management for Composer packages
-
-## Basic Usage
+## Quick Start
 
 ```php
-use ArrayPress\RegisterReports\Reports;
+use function ArrayPress\RegisterReports\register_reports;
 
-new Reports( 'my-reports', [
-    'page_title'   => 'Sales Reports',
-    'menu_title'   => 'Reports',
-    'parent_slug'  => 'woocommerce',
-    'capability'   => 'manage_woocommerce',
+register_reports( 'my-analytics', [
+    'page_title'  => 'Analytics Dashboard',
+    'menu_title'  => 'Analytics',
+    'parent_slug' => 'tools.php',
+    'capability'  => 'manage_options',
     
     'tabs' => [
-        'overview' => 'Overview',
-        'products' => [
-            'label' => 'Products',
-            'icon'  => 'dashicons-products',
+        'overview' => [
+            'label' => 'Overview',
+            'icon'  => 'dashicons-chart-area',
+        ],
+        'sales' => [
+            'label' => 'Sales',
+            'icon'  => 'dashicons-cart',
         ],
     ],
     
     'components' => [
-        'revenue' => [
+        'total_revenue' => [
             'type'          => 'tile',
             'title'         => 'Total Revenue',
             'tab'           => 'overview',
-            'icon'          => 'dashicons-money-alt',
+            'icon'          => 'money-alt',  // or 'dashicons-money-alt'
+            'icon_color'    => 'green',
             'value_format'  => 'currency',
-            'compare'       => true,
-            'data_callback' => 'my_get_revenue_data',
+            'currency'      => 'USD',
+            'data_callback' => 'my_get_revenue',
         ],
         
-        'sales_chart' => [
+        'revenue_chart' => [
             'type'          => 'chart',
-            'title'         => 'Sales Over Time',
+            'title'         => 'Revenue Trend',
             'tab'           => 'overview',
             'chart_type'    => 'line',
-            'height'        => 350,
-            'data_callback' => 'my_get_sales_chart_data',
+            'height'        => 300,
+            'data_callback' => 'my_get_revenue_chart',
         ],
     ],
 ] );
+
+// Tile callback
+function my_get_revenue( array $date_range, array $config ): array {
+    // $date_range contains: start, end, start_local, end_local, preset
+    // $config contains the component configuration
+    
+    return [
+        'value'          => 15000,  // Current value (in cents for currency)
+        'previous_value' => 12000,  // Optional: auto-calculates change %
+    ];
+}
+
+// Chart callback
+function my_get_revenue_chart( array $date_range, array $config ): array {
+    return [
+        'labels'   => ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+        'datasets' => [
+            [
+                'label' => 'Revenue',
+                'data'  => [1200, 1900, 3000, 5000, 4000],
+            ],
+        ],
+    ];
+}
 ```
 
 ## Configuration Options
 
-### Page Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `page_title` | string | 'Reports' | Page title in browser |
-| `menu_title` | string | 'Reports' | Menu item text |
-| `menu_slug` | string | ID | URL slug |
-| `capability` | string | 'manage_options' | Required capability |
-| `parent_slug` | string | '' | Parent menu (empty for top-level) |
-| `icon` | string | 'dashicons-chart-area' | Menu icon |
-| `position` | int | null | Menu position |
-
-### Header Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `logo` | string | '' | Logo image URL |
-| `header_title` | string | page_title | Header title text |
-| `show_title` | bool | true | Show title in header |
-| `show_tabs` | bool | true | Show tab navigation |
-| `show_date_picker` | bool | true | Show date range picker |
-
-### Date Range Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `date_presets` | array | [...] | Available presets |
-| `default_preset` | string | 'this_month' | Default selected preset |
-
-Available presets: `today`, `yesterday`, `this_week`, `last_week`, `last_7_days`, `last_14_days`, `last_30_days`, `this_month`, `last_month`, `this_quarter`, `last_quarter`, `this_year`, `last_year`, `all_time`, `custom`
-
-## Components
-
-### Tiles
-
-Display KPI stat cards with optional comparison data:
+### Report-Level Options
 
 ```php
-'revenue_tile' => [
-    'type'           => 'tile',
-    'title'          => 'Revenue',
-    'tab'            => 'overview',
-    'icon'           => 'dashicons-money-alt',
-    'color'          => 'green', // blue, green, red, orange, purple, gray
-    'value_format'   => 'currency', // number, currency, percentage
-    'compare'        => true,
-    'trend_direction'=> 'up_is_good', // up_is_good, down_is_good
-    'data_callback'  => function( $date_range, $config ) {
-        return [
-            'value'         => 12500.00,
-            'compare_value' => 10000.00, // Previous period
-            'change'        => 25.0,     // Percentage change
-        ];
-    },
-]
+register_reports( 'my-reports', [
+    // Basic
+    'page_title'       => 'My Reports',
+    'menu_title'       => 'Reports',
+    'menu_slug'        => 'my-reports',      // Auto-generated from ID if not set
+    'capability'       => 'manage_options',
+    'parent_slug'      => '',                // Empty = top-level menu
+    'icon'             => 'dashicons-chart-area',
+    'position'         => null,
+    
+    // Header
+    'show_title'       => true,
+    'header_title'     => '',                // Override page_title in header
+    'logo'             => '',                // URL to logo image
+    
+    // Features
+    'show_tabs'        => true,
+    'show_date_picker' => true,
+    'show_refresh'     => true,              // Show manual refresh button
+    'auto_refresh'     => 0,                 // Seconds between auto-refresh (0 = disabled)
+    
+    // Date presets (or use defaults from wp-date-utils)
+    'date_presets'     => [
+        'today'      => 'Today',
+        'yesterday'  => 'Yesterday',
+        'this_week'  => 'This Week',
+        'last_7'     => 'Last 7 Days',
+        'this_month' => 'This Month',
+        'custom'     => 'Custom Range',
+    ],
+    'default_preset'   => 'this_month',
+    
+    // Help screen
+    'help_tabs'        => [
+        'overview' => [
+            'title'   => 'Overview',
+            'content' => '<p>Help content here...</p>',
+        ],
+    ],
+    'help_sidebar'     => '<p>Sidebar content</p>',
+    
+    // Data
+    'tabs'       => [],
+    'components' => [],
+    'exports'    => [],
+] );
 ```
 
-### Tiles Group
-
-Group multiple tiles with configurable columns:
+### Tab Options
 
 ```php
-'stats_group' => [
+'tabs' => [
+    'overview' => [
+        'label'           => 'Overview',
+        'icon'            => 'dashicons-chart-area',
+        'render_callback' => null,  // Optional: fully custom tab rendering
+    ],
+],
+```
+
+### Tile Component
+
+```php
+'my_tile' => [
+    'type'          => 'tile',
+    'title'         => 'Total Users',
+    'tab'           => 'overview',
+    'icon'          => 'admin-users',      // Shorthand or 'dashicons-admin-users'
+    'icon_color'    => 'blue',             // blue, green, red, orange, purple, gray
+    'value_format'  => 'number',           // number, currency, percentage, decimal, text
+    'currency'      => 'USD',              // For currency format
+    'data_callback' => 'my_callback',
+],
+```
+
+**Tile Callback Return:**
+```php
+function my_callback( array $date_range, array $config ): array {
+    return [
+        'value'            => 1234,
+        'previous_value'   => 1100,       // Optional: auto-calculates change
+        // OR manually specify:
+        'change'           => 12.2,       // Percentage
+        'change_direction' => 'up',       // 'up', 'down', 'neutral'
+    ];
+}
+```
+
+### Chart Component
+
+```php
+'my_chart' => [
+    'type'          => 'chart',
+    'title'         => 'Sales Over Time',
+    'tab'           => 'overview',
+    'chart_type'    => 'line',             // line, bar, pie, doughnut
+    'height'        => 300,
+    'width'         => 'full',             // full, half, third, quarter
+    'data_callback' => 'my_chart_callback',
+],
+```
+
+**Chart Callback Return:**
+```php
+function my_chart_callback( array $date_range, array $config ): array {
+    return [
+        'labels'   => ['Jan', 'Feb', 'Mar'],
+        'datasets' => [
+            [
+                'label'           => 'Sales',
+                'data'            => [100, 200, 150],
+                'backgroundColor' => '#3b82f6',  // Optional
+                'borderColor'     => '#3b82f6',  // Optional
+            ],
+        ],
+    ];
+}
+```
+
+### Table Component
+
+```php
+'my_table' => [
+    'type'          => 'table',
+    'title'         => 'Recent Orders',
+    'tab'           => 'overview',
+    'sortable'      => true,
+    'paginated'     => true,
+    'per_page'      => 10,
+    'columns'       => [
+        'id'       => 'Order ID',
+        'customer' => 'Customer',
+        'total'    => [
+            'label'    => 'Total',
+            'format'   => 'currency',
+            'sortable' => true,
+        ],
+    ],
+    'row_actions'   => [
+        'view' => [
+            'label' => 'View',
+            'url'   => admin_url( 'admin.php?page=orders&id={id}' ),
+        ],
+        'edit' => [
+            'label'        => 'Edit',
+            'url_callback' => function( $row ) {
+                return get_edit_post_link( $row['post_id'] );
+            },
+        ],
+        'delete' => [
+            'label'   => 'Delete',
+            'url'     => '#',
+            'class'   => 'delete',
+            'confirm' => 'Are you sure?',
+        ],
+    ],
+    'data_callback' => 'my_table_callback',
+],
+```
+
+**Table Callback Return:**
+```php
+function my_table_callback( array $date_range, array $config ): array {
+    return [
+        'rows' => [
+            ['id' => 1, 'customer' => 'John Doe', 'total' => 9900],
+            ['id' => 2, 'customer' => 'Jane Doe', 'total' => 15000],
+        ],
+    ];
+    // Or just return the rows array directly
+}
+```
+
+### Tiles Group Component
+
+Group multiple tiles together with a shared title and column layout:
+
+```php
+'key_metrics' => [
     'type'    => 'tiles_group',
     'title'   => 'Key Metrics',
     'tab'     => 'overview',
-    'columns' => 4, // 2, 3, 4, 5, or 6
+    'columns' => 4,  // 2, 3, or 4
     'tiles'   => [
-        'metric1' => [ ... ],
-        'metric2' => [ ... ],
+        'users' => [
+            'title'         => 'Total Users',
+            'icon'          => 'admin-users',
+            'icon_color'    => 'blue',
+            'value_format'  => 'number',
+            'data_callback' => 'get_total_users',
+        ],
+        'revenue' => [
+            'title'         => 'Revenue',
+            'icon'          => 'money-alt',
+            'icon_color'    => 'green',
+            'value_format'  => 'currency',
+            'data_callback' => 'get_revenue',
+        ],
     ],
-]
+],
 ```
 
-### Charts
-
-Create Chart.js visualizations:
-
-```php
-'sales_chart' => [
-    'type'       => 'chart',
-    'title'      => 'Sales Over Time',
-    'tab'        => 'overview',
-    'chart_type' => 'line', // line, bar, pie, doughnut, area
-    'height'     => 350,
-    'width'      => 'full', // full, half, third, quarter, two-thirds
-    'options'    => [
-        'legend'         => true,
-        'legendPosition' => 'top', // top, right, bottom, left
-        'xAxisLabel'     => 'Date',
-        'yAxisLabel'     => 'Revenue',
-        'stacked'        => false,
-        'beginAtZero'    => true,
-    ],
-    'data_callback' => function( $date_range, $config ) {
-        return [
-            'labels'   => [ 'Jan', 'Feb', 'Mar' ],
-            'datasets' => [
-                [
-                    'label' => 'Sales',
-                    'data'  => [ 100, 200, 150 ],
-                ],
-            ],
-        ];
-    },
-]
-```
-
-### Tables
-
-Create sortable, searchable data tables:
-
-```php
-'products_table' => [
-    'type'       => 'table',
-    'title'      => 'Top Products',
-    'tab'        => 'products',
-    'columns'    => [
-        'name'    => 'Product Name',
-        'sku'     => 'SKU',
-        'sold'    => 'Qty Sold',
-        'revenue' => 'Revenue',
-    ],
-    'sortable'   => true,
-    'searchable' => true,
-    'paginated'  => true,
-    'per_page'   => 20,
-    'data_callback' => function( $date_range, $config ) {
-        return [
-            'rows' => [
-                [ 'name' => 'Widget', 'sku' => 'W001', 'sold' => 50, 'revenue' => '$500' ],
-                // ...
-            ],
-        ];
-    },
-]
-```
-
-### HTML
-
-Custom HTML content:
-
-```php
-'custom_content' => [
-    'type'    => 'html',
-    'title'   => 'Custom Section',
-    'tab'     => 'overview',
-    'content' => '<p>Custom HTML content here</p>',
-    // Or use a callback:
-    'render_callback' => function( $date_range, $config ) {
-        echo '<p>Dynamic content</p>';
-    },
-]
-```
-
-## Exports
-
-Configure CSV exports with optional filters:
+### Export Configuration
 
 ```php
 'exports' => [
     'orders_export' => [
-        'title'       => 'Export Orders',
-        'description' => 'Download orders as CSV',
-        'tab'         => 'exports',
-        'filename'    => 'orders',
-        'icon'        => 'dashicons-download',
-        'columns'     => [
-            'order_id' => 'Order ID',
-            'date'     => 'Date',
+        'title'          => 'Export Orders',
+        'description'    => 'Download all orders as CSV.',
+        'tab'            => 'exports',
+        'filename'       => 'orders',  // Or use callback for dynamic names
+        'batch_size'     => 100,
+        'total_callback' => 'get_total_orders',
+        'data_callback'  => 'get_orders_batch',
+        'headers'        => [
+            'id'       => 'Order ID',
+            'customer' => 'Customer',
             'total'    => 'Total',
+            'date'     => 'Date',
         ],
-        'filters'     => [
+        'filters'        => [
             'status' => [
-                'type'        => 'select',
-                'label'       => 'Status',
-                'placeholder' => 'All Statuses',
-                'options'     => [
-                    'completed'  => 'Completed',
-                    'processing' => 'Processing',
+                'type'    => 'select',
+                'label'   => 'Status',
+                'options' => [
+                    ''          => 'All Statuses',
+                    'completed' => 'Completed',
+                    'pending'   => 'Pending',
                 ],
             ],
-            'date_range' => [
-                'type'  => 'daterange',
-                'label' => 'Custom Date Range',
-            ],
-        ],
-        'data_callback' => function( $date_range, $filters, $export ) {
-            return [
-                [ 'order_id' => '1001', 'date' => '2025-01-15', 'total' => '$99.00' ],
-                // ...
-            ];
-        },
-    ],
-]
-```
-
-### Filter Types
-
-- `select` - Dropdown select
-- `multiselect` - Multi-select dropdown
-- `text` - Text input
-- `date` - Single date picker
-- `daterange` - Start/end date range
-- `checkbox` - Checkbox group
-
-## Data Callbacks
-
-All data callbacks receive:
-
-1. `$date_range` - Array with `start` and `end` dates (Y-m-d format)
-2. `$config` - Component configuration array
-3. `$filters` (exports only) - Selected filter values
-
-### Tile Callback Return
-
-```php
-[
-    'value'         => 12500,      // Required: Current value
-    'compare_value' => 10000,      // Optional: Previous period value
-    'change'        => 25.0,       // Optional: Percentage change
-]
-```
-
-### Chart Callback Return
-
-```php
-[
-    'labels'   => [ 'Label 1', 'Label 2', ... ],
-    'datasets' => [
-        [
-            'label'           => 'Dataset 1',
-            'data'            => [ 10, 20, 30 ],
-            'backgroundColor' => '#3b82f6', // Optional
-            'borderColor'     => '#3b82f6', // Optional
         ],
     ],
-]
+],
 ```
 
-### Table Callback Return
-
+**Export Callbacks:**
 ```php
-[
-    'rows' => [
-        [ 'col1' => 'Value 1', 'col2' => 'Value 2' ],
+// Return total count for progress calculation
+function get_total_orders( array $args ): int {
+    // $args contains: date_range, filters
+    return 1000;
+}
+
+// Return batch of data
+function get_orders_batch( array $args ): array {
+    // $args contains: date_range, filters, offset, limit
+    $offset = $args['offset'];
+    $limit  = $args['limit'];
+    
+    return [
+        ['id' => 1, 'customer' => 'John', 'total' => '$99.00', 'date' => '2024-01-15'],
         // ...
-    ],
+    ];
+}
+```
+
+**Dynamic Filename:**
+```php
+'filename' => function( array $date_range, array $config ): string {
+    return 'orders-' . $date_range['start_local'] . '-to-' . $date_range['end_local'];
+},
+```
+
+## Date Range
+
+The `$date_range` array passed to callbacks contains:
+
+```php
+[
+    'start'       => '2024-01-01 00:00:00',  // UTC
+    'end'         => '2024-01-31 23:59:59',  // UTC
+    'start_local' => '2024-01-01',           // Local date (Y-m-d)
+    'end_local'   => '2024-01-31',           // Local date (Y-m-d)
+    'preset'      => 'this_month',           // Selected preset key
 ]
 ```
+
+## Value Formats
+
+| Format | Description | Example Output |
+|--------|-------------|----------------|
+| `number` | Integer with thousands separator | 1,234 |
+| `decimal` | Two decimal places | 1,234.56 |
+| `currency` | Currency format (value in cents) | $12.34 |
+| `percentage` | Percentage with one decimal | 12.3% |
+| `text` | Raw text output | Any text |
+| `date` | Formatted date | Jan 15, 2024 |
+| `datetime` | Formatted datetime | Jan 15, 2024 3:30 PM |
+
+## Icon Colors
+
+Available colors for tile icons:
+- `blue` - Blue (#2271b1)
+- `green` - Green (#00a32a)
+- `red` - Red (#d63638)
+- `orange` - Orange (#dba617)
+- `purple` - Purple (#8b5cf6)
+- `gray` - Gray (#646970)
+
+## Auto-Refresh
+
+Enable auto-refresh to periodically update all components:
+
+```php
+register_reports( 'live-dashboard', [
+    'auto_refresh' => 30,  // Refresh every 30 seconds
+    'show_refresh' => true, // Also show manual refresh button
+    // ...
+] );
+```
+
+When enabled:
+- Components refresh via AJAX without page reload
+- "Last updated: Xs ago" timestamp shown in header
+- Auto-refresh pauses when browser tab is hidden
+- Manual refresh button resets the timer
 
 ## Helper Functions
 
 ```php
 use function ArrayPress\RegisterReports\register_reports;
 use function ArrayPress\RegisterReports\get_reports;
-use function ArrayPress\RegisterReports\reports_exists;
 
-// Register a reports page
-$reports = register_reports( 'my-reports', [ ... ] );
+// Register a report
+register_reports( 'my-reports', $config );
 
-// Get a registered instance
-$reports = get_reports( 'my-reports' );
-
-// Check if exists
-if ( reports_exists( 'my-reports' ) ) {
-    // ...
-}
+// Get a registered report instance
+$report = get_reports( 'my-reports' );
 ```
-
-### Date & Currency Utilities
-
-For date and currency formatting, use the dedicated libraries:
-
-```php
-use ArrayPress\DateUtils\Dates;
-use function format_currency;
-
-// Date range for database queries (returns UTC)
-$range = Dates::get_range( 'this_month' );
-// ['start' => '2025-01-01 00:00:00', 'end' => '2025-01-31 23:59:59']
-
-// Format UTC date for display (converts to local timezone)
-echo Dates::format( $utc_date, 'date' );
-
-// Format currency (amounts in cents)
-echo format_currency( 1999, 'USD' ); // $19.99
-```
-
-## Registry
-
-Access registered reports:
-
-```php
-use ArrayPress\RegisterReports\Registry;
-
-// Get a reports instance
-$reports = Registry::get( 'my-reports' );
-
-// Check if exists
-if ( Registry::has( 'my-reports' ) ) {
-    // ...
-}
-
-// Get all registered reports
-$all = Registry::all();
-```
-
-## REST API
-
-The library registers REST endpoints for AJAX refresh:
-
-- `GET /wp-json/reports/v1/component` - Refresh single component
-- `GET /wp-json/reports/v1/tab` - Refresh entire tab
-- `POST /wp-json/reports/v1/export` - Generate export file
 
 ## Styling
 
-The library includes responsive CSS. Custom styles can be added:
+The library includes comprehensive CSS that follows WordPress admin styling conventions. Key CSS classes:
 
-```css
-/* Target specific report */
-.reports-wrap[data-report-id="my-reports"] {
-    /* Custom styles */
-}
+- `.reports-wrap` - Main wrapper
+- `.reports-header` - Full-width header
+- `.reports-tile` - Individual tile
+- `.reports-chart-wrapper` - Chart container
+- `.reports-table-wrapper` - Table container
+- `.reports-export-card` - Export card
 
-/* Custom tile colors */
-.reports-tile-icon.color-custom {
-    color: #ff6b6b;
-}
+## Chart.js
+
+Charts are powered by Chart.js v4.5.1. The library expects the Chart.js file at:
 ```
+assets/js/chart.umd.min.js
+```
+
+Download from: https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js
 
 ## License
 
 GPL-2.0-or-later
+
+## Credits
+
+Developed by [ArrayPress](https://arraypress.com/)

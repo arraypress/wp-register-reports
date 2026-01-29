@@ -59,7 +59,7 @@ class RestApi {
 	 * Register REST routes.
 	 */
 	public static function register_routes(): void {
-		// Get component data
+		// Get single component data
 		register_rest_route( self::NAMESPACE, '/component', [
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => [ __CLASS__, 'get_component_data' ],
@@ -67,7 +67,15 @@ class RestApi {
 			'args'                => self::get_component_args(),
 		] );
 
-		// Refresh entire tab
+		// Get all components for a tab (for refresh)
+		register_rest_route( self::NAMESPACE, '/components', [
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => [ __CLASS__, 'get_all_components_data' ],
+			'permission_callback' => [ __CLASS__, 'check_permissions' ],
+			'args'                => self::get_tab_args(),
+		] );
+
+		// Refresh entire tab (legacy)
 		register_rest_route( self::NAMESPACE, '/tab', [
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => [ __CLASS__, 'get_tab_data' ],
@@ -218,6 +226,134 @@ class RestApi {
 			return new WP_REST_Response( [ 'success' => true, 'data' => $data, 'type' => $component['type'] ?? 'unknown' ] );
 		} catch ( Exception $e ) {
 			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
+		}
+	}
+
+	/**
+	 * Get all components data for refresh.
+	 *
+	 * Returns data in a format optimized for JS refresh.
+	 */
+	public static function get_all_components_data( WP_REST_Request $request ) {
+		$report_id = $request->get_param( 'report_id' );
+		$tab       = $request->get_param( 'tab' );
+		$report    = Registry::instance()->get( $report_id );
+
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'reports' ), [ 'status' => 404 ] );
+		}
+
+		$date_range = self::get_date_range_from_request( $request, $report );
+		$all_components = $report->get_components();
+
+		// If no tab specified, use first tab
+		if ( empty( $tab ) ) {
+			$tabs = $report->get_tabs();
+			$tab  = array_key_first( $tabs );
+		}
+
+		if ( ! isset( $all_components[ $tab ] ) ) {
+			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'reports' ), [ 'status' => 404 ] );
+		}
+
+		$components_data = [];
+
+		foreach ( $all_components[ $tab ] as $component_id => $component ) {
+			$callback = $component['data_callback'] ?? null;
+			$type     = $component['type'] ?? 'unknown';
+
+			if ( ! $callback || ! is_callable( $callback ) ) {
+				continue;
+			}
+
+			try {
+				$raw_data = call_user_func( $callback, $date_range, $component );
+
+				// Format response based on component type
+				switch ( $type ) {
+					case 'tile':
+						$value          = $raw_data['value'] ?? 0;
+						$previous_value = $raw_data['previous_value'] ?? null;
+
+						// Auto-calculate change
+						$change           = $raw_data['change'] ?? null;
+						$change_direction = $raw_data['change_direction'] ?? null;
+
+						if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+							$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
+							$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
+							$change           = abs( $change );
+						}
+
+						// Format value
+						$format     = $component['value_format'] ?? 'number';
+						$currency   = $component['currency'] ?? 'USD';
+						$formatted  = self::format_value_for_api( $value, $format, $currency );
+
+						$components_data[ $component_id ] = [
+							'type'             => 'tile',
+							'value'            => $value,
+							'formatted_value'  => $formatted,
+							'change'           => $change,
+							'change_direction' => $change_direction,
+						];
+						break;
+
+					case 'chart':
+						$components_data[ $component_id ] = [
+							'type'     => 'chart',
+							'labels'   => $raw_data['labels'] ?? [],
+							'datasets' => $raw_data['datasets'] ?? [],
+						];
+						break;
+
+					case 'table':
+						$components_data[ $component_id ] = [
+							'type' => 'table',
+							'rows' => $raw_data['rows'] ?? $raw_data ?? [],
+						];
+						break;
+
+					default:
+						$components_data[ $component_id ] = [
+							'type' => $type,
+							'data' => $raw_data,
+						];
+				}
+			} catch ( Exception $e ) {
+				$components_data[ $component_id ] = [
+					'type'  => $type,
+					'error' => $e->getMessage(),
+				];
+			}
+		}
+
+		return new WP_REST_Response( [
+			'success'    => true,
+			'components' => $components_data,
+		] );
+	}
+
+	/**
+	 * Format a value for API response.
+	 */
+	private static function format_value_for_api( $value, string $format, string $currency = 'USD' ): string {
+		switch ( $format ) {
+			case 'currency':
+				$cents = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
+				return function_exists( 'format_currency' ) ? format_currency( $cents, $currency ) : '$' . number_format( $cents / 100, 2 );
+
+			case 'percentage':
+				return number_format( (float) $value, 1 ) . '%';
+
+			case 'number':
+				return number_format( (int) $value );
+
+			case 'decimal':
+				return number_format( (float) $value, 2 );
+
+			default:
+				return (string) $value;
 		}
 	}
 
@@ -406,7 +542,19 @@ class RestApi {
 		}
 
 		$export_config = $config['export_config'] ?? [];
-		$filename      = sanitize_file_name( ( $export_config['filename'] ?? 'export' ) . '-' . gmdate( 'Y-m-d' ) . '.csv' );
+		$date_range    = $config['date_range'] ?? [];
+
+		// Support filename callback
+		$base_filename = 'export';
+		if ( ! empty( $export_config['filename'] ) ) {
+			if ( is_callable( $export_config['filename'] ) ) {
+				$base_filename = call_user_func( $export_config['filename'], $date_range, $export_config );
+			} else {
+				$base_filename = $export_config['filename'];
+			}
+		}
+
+		$filename = sanitize_file_name( $base_filename . '-' . gmdate( 'Y-m-d' ) . '.csv' );
 
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
