@@ -153,64 +153,47 @@ trait ComponentRenderer {
 			$data = call_user_func( $component['data_callback'], $this->date_range, $component );
 		}
 
-		$value         = $data['value'] ?? 0;
-		$compare_value = $data['compare_value'] ?? null;
-		$change        = $data['change'] ?? null;
-		$label         = $data['label'] ?? $component['title'];
-
-		$width_class = $this->get_width_class( $component['width'] ?? 'auto' );
-		$color_class = ! empty( $component['color'] ) ? 'reports-tile--' . $component['color'] : '';
+		$value            = $data['value'] ?? 0;
+		$change           = $data['change'] ?? null;
+		$change_direction = $data['change_direction'] ?? null;
+		$label            = $component['title'] ?? '';
+		$icon_color       = $component['icon_color'] ?? 'gray';
 
 		?>
-		<div class="reports-tile <?php echo esc_attr( $width_class . ' ' . $color_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
-		     data-component-id="<?php echo esc_attr( $component_id ); ?>"
-		     data-ajax-refresh="<?php echo $component['ajax_refresh'] ? 'true' : 'false'; ?>">
+		<div class="reports-tile"
+		     data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
 			<div class="reports-tile-header">
 				<?php if ( ! empty( $component['icon'] ) ) : ?>
-					<span class="reports-tile-icon dashicons <?php echo esc_attr( $component['icon'] ); ?>"></span>
+					<span class="reports-tile-icon icon-<?php echo esc_attr( $icon_color ); ?>">
+						<span class="dashicons <?php echo esc_attr( $component['icon'] ); ?>"></span>
+					</span>
 				<?php endif; ?>
-				<h3 class="reports-tile-title"><?php echo esc_html( $label ); ?></h3>
+				<span class="reports-tile-label"><?php echo esc_html( $label ); ?></span>
 			</div>
 
-			<div class="reports-tile-content">
-				<div class="reports-tile-value">
-					<?php echo esc_html( $this->format_value( $value, $component['value_format'] ?? 'number' ) ); ?>
+			<div class="reports-tile-value">
+				<?php echo esc_html( $this->format_value( $value, $component['value_format'] ?? 'number' ) ); ?>
+			</div>
+
+			<?php if ( $change !== null && $change_direction ) : ?>
+				<?php
+				$change_class = 'change-neutral';
+				$change_icon  = 'minus';
+
+				if ( $change_direction === 'up' ) {
+					$change_class = 'change-up';
+					$change_icon  = 'arrow-up-alt';
+				} elseif ( $change_direction === 'down' ) {
+					$change_class = 'change-down';
+					$change_icon  = 'arrow-down-alt';
+				}
+				?>
+				<div class="reports-tile-change <?php echo esc_attr( $change_class ); ?>">
+					<span class="dashicons dashicons-<?php echo esc_attr( $change_icon ); ?>"></span>
+					<?php echo esc_html( abs( $change ) . '%' ); ?>
 				</div>
-
-				<?php if ( $compare_value !== null && $component['compare'] ) : ?>
-					<?php
-					$trend_class = 'neutral';
-					$trend_icon  = 'minus';
-
-					if ( $change !== null && $change != 0 ) {
-						$is_positive = $change > 0;
-						$is_good     = ( $component['trend_direction'] ?? 'up_good' ) === 'up_good' ? $is_positive : ! $is_positive;
-						$trend_class = $is_good ? 'positive' : 'negative';
-						$trend_icon  = $is_positive ? 'arrow-up-alt' : 'arrow-down-alt';
-					}
-					?>
-					<div class="reports-tile-compare reports-tile-compare--<?php echo esc_attr( $trend_class ); ?>">
-						<span class="dashicons dashicons-<?php echo esc_attr( $trend_icon ); ?>"></span>
-						<span class="reports-tile-change">
-							<?php echo esc_html( $this->format_change( $change ) ); ?>
-						</span>
-						<?php if ( ! empty( $component['compare_label'] ) ) : ?>
-							<span class="reports-tile-compare-label">
-								<?php echo esc_html( $component['compare_label'] ); ?>
-							</span>
-						<?php endif; ?>
-					</div>
-				<?php endif; ?>
-
-				<?php if ( ! empty( $component['description'] ) ) : ?>
-					<p class="reports-tile-description"><?php echo esc_html( $component['description'] ); ?></p>
-				<?php endif; ?>
-			</div>
-
-			<div class="reports-tile-loading" style="display: none;">
-				<span class="spinner is-active"></span>
-			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -232,21 +215,20 @@ trait ComponentRenderer {
 		}
 
 		?>
-		<div class="reports-tiles-group reports-tiles-group--cols-<?php echo esc_attr( $columns ); ?>"
+		<div class="reports-tiles-wrapper"
 		     data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
 			<?php if ( ! empty( $component['title'] ) ) : ?>
-				<h3 class="reports-tiles-group-title"><?php echo esc_html( $component['title'] ); ?></h3>
+				<h3 class="reports-tiles-wrapper-title"><?php echo esc_html( $component['title'] ); ?></h3>
 			<?php endif; ?>
 
-			<div class="reports-tiles-grid">
+			<div class="reports-tiles-grid reports-tiles-columns-<?php echo esc_attr( $columns ); ?>">
 				<?php foreach ( $tiles as $tile_id => $tile ) :
 					$tile = wp_parse_args( $tile, [
 						'type'          => 'tile',
 						'icon'          => 'dashicons-chart-bar',
+						'icon_color'    => 'gray',
 						'value_format'  => 'number',
-						'compare'       => false,
-						'ajax_refresh'  => true,
 					] );
 					$this->render_tile( $component_id . '_' . $tile_id, $tile );
 				endforeach; ?>
@@ -302,6 +284,8 @@ trait ComponentRenderer {
 
 			<div class="reports-chart-container" style="height: <?php echo esc_attr( $height ); ?>px;">
 				<canvas id="chart-<?php echo esc_attr( $component_id ); ?>"
+				        class="reports-chart-canvas"
+				        data-chart-id="<?php echo esc_attr( $component_id ); ?>"
 				        data-chart-config="<?php echo esc_attr( wp_json_encode( $chart_config ) ); ?>"></canvas>
 			</div>
 
@@ -429,13 +413,13 @@ trait ComponentRenderer {
 					<tr>
 						<?php foreach ( $columns as $key => $column ) :
 							$column_label = is_array( $column ) ? ( $column['label'] ?? $key ) : $column;
-							$sortable     = is_array( $column ) && ( $column['sortable'] ?? $component['sortable'] ?? true );
+							$is_sortable  = $component['sortable'] ?? false;
+							if ( is_array( $column ) && isset( $column['sortable'] ) ) {
+								$is_sortable = $column['sortable'];
+							}
 							?>
-							<th class="<?php echo $sortable ? 'sortable' : ''; ?>" data-column="<?php echo esc_attr( $key ); ?>">
+							<th class="<?php echo $is_sortable ? 'sortable' : ''; ?>" data-column="<?php echo esc_attr( $key ); ?>">
 								<?php echo esc_html( $column_label ); ?>
-								<?php if ( $sortable ) : ?>
-									<span class="dashicons dashicons-sort"></span>
-								<?php endif; ?>
 							</th>
 						<?php endforeach; ?>
 					</tr>
