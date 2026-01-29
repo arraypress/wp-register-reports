@@ -22,7 +22,7 @@
       "ArrayPress\\RegisterReports\\": "src/"
     },
     "files": [
-      "src/Utilities/Functions.php"
+      "src/Functions.php"
     ]
   },
   "config": {

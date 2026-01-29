@@ -9,7 +9,7 @@
    ========================================================================== */
 
 .reports-wrap {
-	max-width: 1400px;
+	margin: 20px 20px 20px 0;
 }
 
 .reports-wrap * {
@@ -67,37 +67,109 @@
    ========================================================================== */
 
 .reports-date-picker {
-	display: flex;
+	position: relative;
+}
+
+.reports-date-picker-toggle {
+	display: inline-flex;
 	align-items: center;
-	gap: 8px;
-}
-
-.reports-date-picker select {
-	min-width: 160px;
+	gap: 6px;
+	padding: 6px 12px;
 	height: 36px;
-}
-
-.reports-custom-dates {
-	display: none;
-	align-items: center;
-	gap: 8px;
-}
-
-.reports-custom-dates.active {
-	display: flex;
-}
-
-.reports-custom-dates input[type="date"] {
-	width: 140px;
-	height: 36px;
-}
-
-.reports-date-separator {
-	color: #646970;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	color: #2271b1;
+	cursor: pointer;
 	font-size: 13px;
+	line-height: 1;
 }
 
-.reports-apply-date {
+.reports-date-picker-toggle:hover {
+	border-color: #2271b1;
+}
+
+.reports-date-picker-toggle .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 16px;
+}
+
+.reports-date-picker-dropdown {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	margin-top: 4px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+	min-width: 200px;
+}
+
+.reports-date-picker-presets {
+	padding: 8px 0;
+}
+
+.reports-date-preset {
+	display: block;
+	width: 100%;
+	padding: 8px 16px;
+	text-align: left;
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #1d2327;
+}
+
+.reports-date-preset:hover {
+	background: #f0f0f1;
+}
+
+.reports-date-preset.active {
+	background: #2271b1;
+	color: #fff;
+}
+
+.reports-date-picker-divider {
+	height: 1px;
+	background: #c3c4c7;
+	margin: 8px 0;
+}
+
+.reports-date-picker-custom {
+	padding: 16px;
+	border-top: 1px solid #c3c4c7;
+}
+
+.reports-date-picker-custom-row {
+	margin-bottom: 12px;
+}
+
+.reports-date-picker-custom-row label {
+	display: block;
+	font-size: 12px;
+	font-weight: 500;
+	color: #646970;
+	margin-bottom: 4px;
+}
+
+.reports-date-picker-custom-row input[type="date"] {
+	width: 100%;
+}
+
+.reports-date-picker-custom-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.reports-date-picker-custom-actions .button {
+	flex: 1;
+}
 	display: none;
 }
 
