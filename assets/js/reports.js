@@ -143,17 +143,26 @@
 			$button.addClass('refreshing');
 			$('.reports-content').addClass('reports-component-refreshing');
 
+			// Collect filter values
+			var filters = this.getCurrentFilters();
+
+			// Build request data
+			var requestData = {
+				report_id: reportId,
+				tab: this.getCurrentTab(),
+				date_preset: this.getCurrentDatePreset(),
+				date_start: this.getCurrentDateStart(),
+				date_end: this.getCurrentDateEnd()
+			};
+
+			// Add filters to request
+			$.extend(requestData, filters);
+
 			// Fetch all components for current tab
 			$.ajax({
 				url: ReportsAdmin.restUrl + 'components',
 				method: 'GET',
-				data: {
-					report_id: reportId,
-					tab: this.getCurrentTab(),
-					date_preset: this.getCurrentDatePreset(),
-					date_start: this.getCurrentDateStart(),
-					date_end: this.getCurrentDateEnd()
-				},
+				data: requestData,
 				beforeSend: function(xhr) {
 					xhr.setRequestHeader('X-WP-Nonce', ReportsAdmin.restNonce);
 				},
@@ -255,6 +264,20 @@
 		getCurrentDateEnd: function() {
 			var url = new URL(window.location.href);
 			return url.searchParams.get('date_end') || '';
+		},
+
+		getCurrentFilters: function() {
+			var url = new URL(window.location.href);
+			var filters = {};
+
+			// Collect all filter_* params from URL
+			url.searchParams.forEach(function(value, key) {
+				if (key.indexOf('filter_') === 0) {
+					filters[key] = value;
+				}
+			});
+
+			return filters;
 		},
 
 		/* DATE PICKER */

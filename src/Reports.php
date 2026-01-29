@@ -278,6 +278,9 @@ class Reports {
 		$current_tab      = $this->get_current_tab();
 		$this->date_range = $this->get_current_date_range();
 
+		// Add current filter values to date_range for callbacks
+		$this->date_range['filters'] = $this->get_current_filters( $current_tab );
+
 		?>
 		<div class="wrap reports-wrap" data-report-id="<?php echo esc_attr( $this->id ); ?>">
 
@@ -295,6 +298,30 @@ class Reports {
 	}
 
 	/**
+	 * Get current filter values from URL for a tab.
+	 *
+	 * @param string $tab Tab key.
+	 *
+	 * @return array
+	 */
+	public function get_current_filters( string $tab ): array {
+		$tab_filters = $this->tabs[ $tab ]['filters'] ?? [];
+		$values      = [];
+
+		foreach ( $tab_filters as $filter_key => $filter ) {
+			$param_name = 'filter_' . $filter_key;
+
+			if ( isset( $_GET[ $param_name ] ) ) {
+				$values[ $filter_key ] = sanitize_text_field( $_GET[ $param_name ] );
+			} else {
+				$values[ $filter_key ] = $filter['default'] ?? '';
+			}
+		}
+
+		return $values;
+	}
+
+	/**
 	 * Render the modern header with optional logo, tabs, and date picker.
 	 *
 	 * @param string $current_tab Current active tab.
@@ -307,6 +334,7 @@ class Reports {
 		$show_title    = $this->config['show_title'] ?? true;
 		$show_refresh  = $this->config['show_refresh'] ?? true;
 		$auto_refresh  = (int) ( $this->config['auto_refresh'] ?? 0 );
+		$tab_filters   = $this->tabs[ $current_tab ]['filters'] ?? [];
 
 		?>
 		<div class="reports-header">
@@ -348,6 +376,95 @@ class Reports {
 				<div class="reports-header-tabs">
 					<?php $this->render_tabs( $current_tab ); ?>
 				</div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $tab_filters ) ) : ?>
+				<?php $this->render_filter_bar( $tab_filters ); ?>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the filter bar for a tab.
+	 *
+	 * @param array $filters Filter configuration.
+	 *
+	 * @return void
+	 */
+	protected function render_filter_bar( array $filters ): void {
+		?>
+		<div class="reports-filter-bar">
+			<form class="reports-filter-form" method="get">
+				<?php
+				// Preserve existing params
+				$preserve = [ 'page', 'tab', 'date_preset', 'date_start', 'date_end' ];
+				foreach ( $preserve as $param ) {
+					if ( isset( $_GET[ $param ] ) ) {
+						printf(
+							'<input type="hidden" name="%s" value="%s">',
+							esc_attr( $param ),
+							esc_attr( sanitize_text_field( $_GET[ $param ] ) )
+						);
+					}
+				}
+				?>
+
+				<div class="reports-filter-fields">
+					<?php foreach ( $filters as $filter_key => $filter ) :
+						$this->render_filter_field( $filter_key, $filter );
+					endforeach; ?>
+				</div>
+
+				<button type="submit" class="button reports-filter-submit">
+					<?php esc_html_e( 'Filter', 'reports' ); ?>
+				</button>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render a single filter field.
+	 *
+	 * @param string $filter_key Filter key.
+	 * @param array  $filter     Filter configuration.
+	 *
+	 * @return void
+	 */
+	protected function render_filter_field( string $filter_key, array $filter ): void {
+		$type          = $filter['type'] ?? 'select';
+		$label         = $filter['label'] ?? ucfirst( $filter_key );
+		$param_name    = 'filter_' . $filter_key;
+		$current_value = isset( $_GET[ $param_name ] ) ? sanitize_text_field( $_GET[ $param_name ] ) : ( $filter['default'] ?? '' );
+
+		?>
+		<div class="reports-filter-field reports-filter-<?php echo esc_attr( $type ); ?>">
+			<label for="<?php echo esc_attr( $param_name ); ?>"><?php echo esc_html( $label ); ?></label>
+
+			<?php if ( $type === 'select' ) : ?>
+				<select name="<?php echo esc_attr( $param_name ); ?>" id="<?php echo esc_attr( $param_name ); ?>">
+					<?php foreach ( $filter['options'] ?? [] as $value => $option_label ) : ?>
+						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current_value, $value ); ?>>
+							<?php echo esc_html( $option_label ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+
+			<?php elseif ( $type === 'checkbox' ) : ?>
+				<input type="checkbox"
+				       name="<?php echo esc_attr( $param_name ); ?>"
+				       id="<?php echo esc_attr( $param_name ); ?>"
+				       value="1"
+					<?php checked( $current_value, '1' ); ?>>
+
+			<?php elseif ( $type === 'text' ) : ?>
+				<input type="text"
+				       name="<?php echo esc_attr( $param_name ); ?>"
+				       id="<?php echo esc_attr( $param_name ); ?>"
+				       value="<?php echo esc_attr( $current_value ); ?>"
+				       placeholder="<?php echo esc_attr( $filter['placeholder'] ?? '' ); ?>">
+
 			<?php endif; ?>
 		</div>
 		<?php

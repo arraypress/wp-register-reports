@@ -160,7 +160,55 @@ register_reports( 'my-reports', [
         'icon'            => 'dashicons-chart-area',
         'render_callback' => null,  // Optional: fully custom tab rendering
     ],
+    'customers' => [
+        'label'   => 'Customers',
+        'icon'    => 'dashicons-groups',
+        'filters' => [
+            'country' => [
+                'type'    => 'select',
+                'label'   => 'Country',
+                'default' => '',
+                'options' => [
+                    ''   => 'All Countries',
+                    'US' => 'United States',
+                    'UK' => 'United Kingdom',
+                    'CA' => 'Canada',
+                ],
+            ],
+            'type' => [
+                'type'    => 'select',
+                'label'   => 'Customer Type',
+                'options' => [
+                    ''          => 'All',
+                    'new'       => 'New Customers',
+                    'returning' => 'Returning',
+                ],
+            ],
+            'exclude_tax' => [
+                'type'    => 'checkbox',
+                'label'   => 'Exclude Tax',
+                'default' => '',
+            ],
+        ],
+    ],
 ],
+```
+
+**Filter Types:**
+- `select` - Dropdown with options
+- `checkbox` - Toggle checkbox
+- `text` - Text input with optional placeholder
+
+**Accessing Filter Values in Callbacks:**
+```php
+function my_callback( array $date_range, array $config ): array {
+    // Filter values are in $date_range['filters']
+    $country = $date_range['filters']['country'] ?? '';
+    $type    = $date_range['filters']['type'] ?? '';
+    
+    // Use filters in your query...
+    return ['value' => $result];
+}
 ```
 
 ### Tile Component

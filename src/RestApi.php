@@ -256,6 +256,17 @@ class RestApi {
 			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'reports' ), [ 'status' => 404 ] );
 		}
 
+		// Collect filter values from request
+		$filters = [];
+		$all_params = $request->get_params();
+		foreach ( $all_params as $key => $value ) {
+			if ( strpos( $key, 'filter_' ) === 0 ) {
+				$filter_key = substr( $key, 7 ); // Remove 'filter_' prefix
+				$filters[ $filter_key ] = sanitize_text_field( $value );
+			}
+		}
+		$date_range['filters'] = $filters;
+
 		$components_data = [];
 
 		foreach ( $all_components[ $tab ] as $component_id => $component ) {
