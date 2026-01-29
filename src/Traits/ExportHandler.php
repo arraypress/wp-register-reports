@@ -175,11 +175,13 @@ trait ExportHandler {
 	 *
 	 * @return void
 	 */
-	protected function render_exports_section( array $exports ): void {
+	protected function render_exports_section( array $exports, int $columns = 0 ): void {
+		$columns_class = $columns > 0 ? ' reports-exports-columns-' . $columns : '';
+
 		?>
 		<div class="reports-exports-section">
 			<h3 class="reports-exports-section-title"><?php esc_html_e( 'Export', 'developer-portal' ); ?></h3>
-			<div class="reports-exports-grid">
+			<div class="reports-exports-grid<?php echo esc_attr( $columns_class ); ?>">
 				<?php foreach ( $exports as $export_id => $export ) : ?>
 					<?php $this->render_export_card( $export_id, $export ); ?>
 				<?php endforeach; ?>

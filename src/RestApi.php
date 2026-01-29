@@ -328,6 +328,57 @@ class RestApi {
 			}
 		}
 
+		// Also process tiles within tiles_group components
+		foreach ( $all_components[ $tab ] as $component_id => $component ) {
+			if ( ( $component['type'] ?? '' ) !== 'tiles_group' ) {
+				continue;
+			}
+
+			$tiles = $component['tiles'] ?? [];
+			foreach ( $tiles as $tile_id => $tile ) {
+				$tile_callback = $tile['data_callback'] ?? null;
+				if ( ! $tile_callback || ! is_callable( $tile_callback ) ) {
+					continue;
+				}
+
+				$full_tile_id = $component_id . '_' . $tile_id;
+
+				try {
+					$raw_data       = call_user_func( $tile_callback, $date_range, $tile );
+					$value          = $raw_data['value'] ?? 0;
+					$previous_value = $raw_data['previous_value'] ?? null;
+
+					// Auto-calculate change
+					$change           = $raw_data['change'] ?? null;
+					$change_direction = $raw_data['change_direction'] ?? null;
+
+					if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+						$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
+						$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
+						$change           = abs( $change );
+					}
+
+					// Format value
+					$format    = $tile['value_format'] ?? 'number';
+					$currency  = $tile['currency'] ?? 'USD';
+					$formatted = self::format_value_for_api( $value, $format, $currency );
+
+					$components_data[ $full_tile_id ] = [
+						'type'             => 'tile',
+						'value'            => $value,
+						'formatted_value'  => $formatted,
+						'change'           => $change,
+						'change_direction' => $change_direction,
+					];
+				} catch ( Exception $e ) {
+					$components_data[ $full_tile_id ] = [
+						'type'  => 'tile',
+						'error' => $e->getMessage(),
+					];
+				}
+			}
+		}
+
 		return new WP_REST_Response( [
 			'success'    => true,
 			'components' => $components_data,

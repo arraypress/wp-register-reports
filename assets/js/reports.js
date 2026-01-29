@@ -242,6 +242,23 @@
 			return url.searchParams.get('tab') || '';
 		},
 
+		getCurrentDatePreset: function() {
+			var url = new URL(window.location.href);
+			return url.searchParams.get('date_preset') || 'this_month';
+		},
+
+		getCurrentDateStart: function() {
+			var url = new URL(window.location.href);
+			return url.searchParams.get('date_start') || '';
+		},
+
+		getCurrentDateEnd: function() {
+			var url = new URL(window.location.href);
+			return url.searchParams.get('date_end') || '';
+		},
+
+		/* DATE PICKER */
+
 		onDatePickerToggle: function(e) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -314,21 +331,6 @@
 			}
 
 			window.location.href = url.toString();
-		},
-
-		getCurrentDatePreset: function() {
-			var url = new URL(window.location.href);
-			return url.searchParams.get('date_preset') || 'this_month';
-		},
-
-		getCurrentDateStart: function() {
-			var url = new URL(window.location.href);
-			return url.searchParams.get('date_start') || '';
-		},
-
-		getCurrentDateEnd: function() {
-			var url = new URL(window.location.href);
-			return url.searchParams.get('date_end') || '';
 		},
 
 		/* CHARTS */

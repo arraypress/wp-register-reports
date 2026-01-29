@@ -373,7 +373,8 @@ class Reports {
 
 		// Render exports section if present
 		if ( ! empty( $tab_exports ) ) {
-			$this->render_exports_section( $tab_exports );
+			$exports_columns = $this->tabs[ $tab ]['exports_columns'] ?? $this->config['exports_columns'] ?? 0;
+			$this->render_exports_section( $tab_exports, $exports_columns );
 		}
 
 		// Render components
