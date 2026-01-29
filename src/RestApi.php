@@ -499,14 +499,22 @@ class RestApi {
 		$export_token = wp_generate_uuid4();
 		$file_path    = $report->get_export_path( $export_token );
 
+		// Resolve filename now if it's a callback (can't serialize closures)
+		$filename = $export_config['filename'] ?? $export_id;
+		if ( is_callable( $filename ) ) {
+			$filename = call_user_func( $filename, $date_range, $export_config );
+		}
+
+		// Only store serializable data - no callbacks/closures
 		set_transient( 'reports_export_' . $export_token, [
-			'report_id'     => $report_id,
-			'export_id'     => $export_id,
-			'filters'       => $filters,
-			'date_range'    => $date_range,
-			'file_path'     => $file_path,
-			'total_items'   => $total_items,
-			'export_config' => $export_config,
+			'report_id'   => $report_id,
+			'export_id'   => $export_id,
+			'filters'     => $filters,
+			'date_range'  => $date_range,
+			'file_path'   => $file_path,
+			'total_items' => $total_items,
+			'filename'    => $filename,
+			'headers'     => $export_config['headers'] ?? [],
 		], HOUR_IN_SECONDS );
 
 		return new WP_REST_Response( [
@@ -530,11 +538,17 @@ class RestApi {
 			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'developer-portal' ), [ 'status' => 400 ] );
 		}
 
-		$report        = Registry::instance()->get( $config['report_id'] );
-		$export_config = $config['export_config'];
+		$report = Registry::instance()->get( $config['report_id'] );
 
-		if ( ! $report || ! $export_config ) {
-			return new WP_Error( 'invalid_config', __( 'Config not found.', 'developer-portal' ), [ 'status' => 400 ] );
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_config', __( 'Report not found.', 'developer-portal' ), [ 'status' => 400 ] );
+		}
+
+		// Re-fetch export config from report (contains callbacks we couldn't serialize)
+		$export_config = $report->find_export_config( $config['export_id'] );
+
+		if ( ! $export_config ) {
+			return new WP_Error( 'invalid_config', __( 'Export config not found.', 'developer-portal' ), [ 'status' => 400 ] );
 		}
 
 		$args = [
@@ -554,7 +568,8 @@ class RestApi {
 			return $data;
 		}
 
-		$headers = $export_config['headers'] ?? [];
+		// Use headers from transient (already resolved) or from export config
+		$headers = $config['headers'] ?? $export_config['headers'] ?? [];
 		$report->write_csv_batch( $config['file_path'], $data, $batch === 0, $headers );
 
 		$processed_items = ( $batch * self::BATCH_SIZE ) + count( $data );
@@ -603,18 +618,8 @@ class RestApi {
 			wp_die( __( 'File not found.', 'developer-portal' ) );
 		}
 
-		$export_config = $config['export_config'] ?? [];
-		$date_range    = $config['date_range'] ?? [];
-
-		// Support filename callback
-		$base_filename = 'export';
-		if ( ! empty( $export_config['filename'] ) ) {
-			if ( is_callable( $export_config['filename'] ) ) {
-				$base_filename = call_user_func( $export_config['filename'], $date_range, $export_config );
-			} else {
-				$base_filename = $export_config['filename'];
-			}
-		}
+		// Use pre-resolved filename from transient (already resolved from callback in start_export)
+		$base_filename = $config['filename'] ?? $config['export_id'] ?? 'export';
 
 		$filename = sanitize_file_name( $base_filename . '-' . gmdate( 'Y-m-d' ) . '.csv' );
 
