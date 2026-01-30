@@ -2,7 +2,7 @@
 /**
  * Config Parser Trait
  *
- * @package     ArrayPress\RegisterImporters
+ * @package     ArrayPress\RegisterReports
  * @copyright   Copyright (c) 2025, ArrayPress Limited
  * @license     GPL2+
  * @since       1.0.0
@@ -10,7 +10,7 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\RegisterImporters\Traits;
+namespace ArrayPress\RegisterReports\Traits;
 
 /**
  * Trait ConfigParser
@@ -26,7 +26,8 @@ trait ConfigParser {
 	 */
 	protected function parse_config(): void {
 		$this->parse_tabs();
-		$this->parse_operations();
+		$this->parse_components();
+		$this->parse_exports();
 	}
 
 	/**
@@ -36,40 +37,19 @@ trait ConfigParser {
 	 */
 	protected function parse_tabs(): void {
 		if ( empty( $this->config['tabs'] ) ) {
-			// Create default tabs if operations exist
-			if ( ! empty( $this->config['operations'] ) ) {
-				$has_syncs   = false;
-				$has_imports = false;
-
-				foreach ( $this->config['operations'] as $operation ) {
-					$type = $operation['type'] ?? 'import';
-					if ( $type === 'sync' ) {
-						$has_syncs = true;
-					} else {
-						$has_imports = true;
-					}
-				}
-
-				if ( $has_syncs ) {
-					$this->tabs['syncs'] = [
-						'label' => __( 'Syncs', 'arraypress' ),
-						'icon'  => 'dashicons-update',
-					];
-				}
-
-				if ( $has_imports ) {
-					$this->tabs['importers'] = [
-						'label' => __( 'Importers', 'arraypress' ),
-						'icon'  => 'dashicons-upload',
-					];
-				}
+			// Create a default tab if components exist but no tabs defined
+			if ( ! empty( $this->config['components'] ) ) {
+				$this->tabs['default'] = [
+					'label' => __( 'Overview', 'reports' ),
+					'icon'  => 'dashicons-chart-bar',
+				];
 			}
 
 			return;
 		}
 
 		foreach ( $this->config['tabs'] as $key => $tab ) {
-			// Handle simple string format: 'syncs' => 'Syncs'
+			// Handle simple string format: 'overview' => 'Overview'
 			if ( is_string( $tab ) ) {
 				$this->tabs[ $key ] = [
 					'label' => $tab,
@@ -87,188 +67,205 @@ trait ConfigParser {
 	}
 
 	/**
-	 * Parse operations configuration.
+	 * Parse components configuration.
 	 *
 	 * @return void
 	 */
-	protected function parse_operations(): void {
-		if ( empty( $this->config['operations'] ) ) {
-			$this->operations = [];
+	protected function parse_components(): void {
+		if ( empty( $this->config['components'] ) ) {
+			$this->components = [];
 
 			return;
 		}
 
 		$first_tab = ! empty( $this->tabs ) ? array_key_first( $this->tabs ) : 'default';
 
-		foreach ( $this->config['operations'] as $key => $operation ) {
-			$operation = $this->normalize_operation( $key, $operation, $first_tab );
-			$tab       = $operation['tab'];
+		foreach ( $this->config['components'] as $key => $component ) {
+			$component = $this->normalize_component( $key, $component, $first_tab );
+			$tab       = $component['tab'];
 
-			if ( ! isset( $this->operations[ $tab ] ) ) {
-				$this->operations[ $tab ] = [];
+			if ( ! isset( $this->components[ $tab ] ) ) {
+				$this->components[ $tab ] = [];
 			}
 
-			$this->operations[ $tab ][ $key ] = $operation;
+			$this->components[ $tab ][ $key ] = $component;
 		}
 	}
 
 	/**
-	 * Normalize a single operation configuration.
+	 * Normalize a single component configuration.
 	 *
-	 * @param string $key       Operation key.
-	 * @param array  $operation Operation configuration.
+	 * @param string $key       Component key.
+	 * @param array  $component Component configuration.
 	 * @param string $first_tab First tab key for default.
 	 *
 	 * @return array
 	 */
-	protected function normalize_operation( string $key, array $operation, string $first_tab ): array {
-		$type = $operation['type'] ?? 'import';
-
+	protected function normalize_component( string $key, array $component, string $first_tab ): array {
 		$defaults = [
-			'type'             => $type,
-			'title'            => ucfirst( str_replace( [ '_', '-' ], ' ', $key ) ),
-			'description'      => '',
-			'tab'              => $type === 'sync' ? 'syncs' : 'importers',
-			'icon'             => $type === 'sync' ? 'dashicons-update' : 'dashicons-upload',
-			'singular'         => 'item',
-			'plural'           => 'items',
-			'batch_size'       => 100,
-			'capability'       => 'manage_options',
-			'process_callback' => null,
+			'type'          => 'tile',
+			'title'         => ucfirst( str_replace( [ '_', '-' ], ' ', $key ) ),
+			'description'   => '',
+			'tab'           => $first_tab,
+			'order'         => 10,
+			'width'         => 'auto',      // auto, full, half, third, quarter
+			'data_callback' => null,
+			'class'         => '',
+			'ajax_refresh'  => true,
 		];
 
-		// Ensure tab exists, fallback to first tab
-		if ( ! isset( $this->tabs[ $defaults['tab'] ] ) ) {
-			$defaults['tab'] = $first_tab;
-		}
+		$component = wp_parse_args( $component, $defaults );
 
-		$operation = wp_parse_args( $operation, $defaults );
+		// Type-specific defaults
+		$component = $this->apply_component_type_defaults( $component );
 
-		// Apply type-specific defaults
-		$operation = $this->apply_operation_type_defaults( $operation );
-
-		return $operation;
+		return $component;
 	}
 
 	/**
-	 * Apply type-specific default values to operations.
+	 * Apply type-specific default values to components.
 	 *
-	 * @param array $operation Operation configuration.
+	 * @param array $component Component configuration.
 	 *
 	 * @return array
 	 */
-	protected function apply_operation_type_defaults( array $operation ): array {
-		switch ( $operation['type'] ) {
-			case 'sync':
-				$operation = wp_parse_args( $operation, [
-					'data_callback' => null,
+	protected function apply_component_type_defaults( array $component ): array {
+		switch ( $component['type'] ) {
+			case 'tile':
+				$component = wp_parse_args( $component, [
+					'icon'            => 'dashicons-chart-bar',
+					'color'           => '',
+					'value_format'    => 'number',  // number, currency, percentage
+					'compare'         => false,     // Show comparison with previous period
+					'compare_label'   => '',
+					'trend_direction' => 'up_good', // up_good, up_bad
 				] );
 				break;
 
-			case 'import':
-				$operation = wp_parse_args( $operation, [
-					'fields'              => [],
-					'update_existing'     => true,
-					'match_field'         => null,
-					'skip_empty_rows'     => true,
-					'validate_callback'   => null,
+			case 'chart':
+				$component = wp_parse_args( $component, [
+					'chart_type'      => 'line',  // line, bar, pie, doughnut, area
+					'height'          => 300,
+					'show_legend'     => true,
+					'legend_position' => 'top',
+					'colors'          => [],
+					'stacked'         => false,
+					'fill'            => false,
+					'tension'         => 0.4,
+					'x_axis_label'    => '',
+					'y_axis_label'    => '',
+					'tooltip_format'  => '',
 				] );
+				break;
 
-				// Normalize fields
-				if ( ! empty( $operation['fields'] ) ) {
-					$operation['fields'] = $this->normalize_fields( $operation['fields'] );
-				}
+			case 'table':
+				$component = wp_parse_args( $component, [
+					'columns'       => [],
+					'sortable'      => true,
+					'searchable'    => false,
+					'paginated'     => true,
+					'per_page'      => 10,
+					'empty_message' => __( 'No data available.', 'reports' ),
+					'row_actions'   => [],
+				] );
+				break;
+
+			case 'html':
+				$component = wp_parse_args( $component, [
+					'content'         => '',
+					'render_callback' => null,
+				] );
+				break;
+
+			case 'tiles_group':
+				$component = wp_parse_args( $component, [
+					'tiles'   => [],
+					'columns' => 4,
+				] );
 				break;
 		}
 
-		return $operation;
+		return $component;
 	}
 
 	/**
-	 * Normalize field definitions for imports.
+	 * Parse exports configuration.
 	 *
-	 * @param array $fields Raw field definitions.
-	 *
-	 * @return array Normalized field definitions.
+	 * @return void
 	 */
-	protected function normalize_fields( array $fields ): array {
-		$normalized = [];
+	protected function parse_exports(): void {
+		if ( empty( $this->config['exports'] ) ) {
+			$this->exports = [];
 
-		foreach ( $fields as $key => $field ) {
-			// Handle simple format: 'sku' => 'SKU'
-			if ( is_string( $field ) ) {
-				$normalized[ $key ] = [
-					'label'             => $field,
-					'required'          => false,
-					'default'           => null,
-					'sanitize_callback' => 'sanitize_text_field',
-				];
-			} else {
-				// Full array format
-				$normalized[ $key ] = wp_parse_args( $field, [
-					'label'             => ucfirst( str_replace( [ '_', '-' ], ' ', $key ) ),
-					'required'          => false,
-					'default'           => null,
-					'sanitize_callback' => 'sanitize_text_field',
-				] );
-			}
+			return;
 		}
 
-		return $normalized;
+		$first_tab = ! empty( $this->tabs ) ? array_key_first( $this->tabs ) : 'default';
+
+		foreach ( $this->config['exports'] as $key => $export ) {
+			$export = $this->normalize_export( $key, $export, $first_tab );
+			$tab    = $export['tab'];
+
+			if ( ! isset( $this->exports[ $tab ] ) ) {
+				$this->exports[ $tab ] = [];
+			}
+
+			$this->exports[ $tab ][ $key ] = $export;
+		}
 	}
 
 	/**
-	 * Get operations for a specific tab.
+	 * Normalize a single export configuration.
+	 *
+	 * @param string $key       Export key.
+	 * @param array  $export    Export configuration.
+	 * @param string $first_tab First tab key for default.
+	 *
+	 * @return array
+	 */
+	protected function normalize_export( string $key, array $export, string $first_tab ): array {
+		$defaults = [
+			'title'         => ucfirst( str_replace( [ '_', '-' ], ' ', $key ) ),
+			'description'   => '',
+			'tab'           => $first_tab,
+			'filename'      => $key,
+			'data_callback' => null,
+			'columns'       => [],
+			'filters'       => [],
+			'icon'          => 'dashicons-download',
+			'button_text'   => __( 'Export CSV', 'reports' ),
+		];
+
+		return wp_parse_args( $export, $defaults );
+	}
+
+	/**
+	 * Get components for a specific tab.
 	 *
 	 * @param string $tab Tab key.
 	 *
 	 * @return array
 	 */
-	protected function get_operations_for_tab( string $tab ): array {
-		return $this->operations[ $tab ] ?? [];
+	protected function get_components_for_tab( string $tab ): array {
+		$components = $this->components[ $tab ] ?? [];
+
+		// Sort by order
+		uasort( $components, function ( $a, $b ) {
+			return ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 );
+		} );
+
+		return $components;
 	}
 
 	/**
-	 * Get all operations.
+	 * Get exports for a specific tab.
+	 *
+	 * @param string $tab Tab key.
 	 *
 	 * @return array
 	 */
-	public function get_all_operations(): array {
-		$all = [];
-
-		foreach ( $this->operations as $tab => $ops ) {
-			$all = array_merge( $all, $ops );
-		}
-
-		return $all;
-	}
-
-	/**
-	 * Get a specific operation by ID.
-	 *
-	 * @param string $operation_id Operation ID.
-	 *
-	 * @return array|null Operation config or null if not found.
-	 */
-	public function get_operation( string $operation_id ): ?array {
-		foreach ( $this->operations as $tab => $ops ) {
-			if ( isset( $ops[ $operation_id ] ) ) {
-				return $ops[ $operation_id ];
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Check if an operation exists.
-	 *
-	 * @param string $operation_id Operation ID.
-	 *
-	 * @return bool
-	 */
-	public function has_operation( string $operation_id ): bool {
-		return $this->get_operation( $operation_id ) !== null;
+	protected function get_exports_for_tab( string $tab ): array {
+		return $this->exports[ $tab ] ?? [];
 	}
 
 }

@@ -2,7 +2,7 @@
 /**
  * REST API Class
  *
- * @package     ArrayPress\RegisterImporters
+ * @package     ArrayPress\RegisterReports
  * @copyright   Copyright (c) 2025, ArrayPress Limited
  * @license     GPL2+
  * @since       1.0.0
@@ -10,8 +10,9 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\RegisterImporters;
+namespace ArrayPress\RegisterReports;
 
+use ArrayPress\DateUtils\Dates;
 use Exception;
 use WP_Error;
 use WP_REST_Request;
@@ -21,26 +22,27 @@ use WP_REST_Server;
 /**
  * Class RestApi
  *
- * Handles REST API endpoints for import/sync operations.
+ * Handles REST API endpoints for reports including batched exports.
  */
 class RestApi {
 
 	/**
 	 * REST namespace.
 	 */
-	const NAMESPACE = 'importers/v1';
+	const NAMESPACE = 'reports/v1';
 
 	/**
 	 * Whether the API has been registered.
-	 *
-	 * @var bool
 	 */
 	private static bool $registered = false;
 
 	/**
+	 * Export batch size.
+	 */
+	const BATCH_SIZE = 100;
+
+	/**
 	 * Register REST API endpoints.
-	 *
-	 * @return void
 	 */
 	public static function register(): void {
 		if ( self::$registered ) {
@@ -48,822 +50,576 @@ class RestApi {
 		}
 
 		add_action( 'rest_api_init', [ __CLASS__, 'register_routes' ] );
+		add_action( 'wp_ajax_reports_download_export', [ __CLASS__, 'handle_download_export' ] );
 
 		self::$registered = true;
 	}
 
 	/**
 	 * Register REST routes.
-	 *
-	 * @return void
 	 */
 	public static function register_routes(): void {
-		// Upload file
-		register_rest_route( self::NAMESPACE, '/upload', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_upload' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-			],
-		] );
-
-		// Get file preview
-		register_rest_route( self::NAMESPACE, '/preview/(?P<uuid>[a-f0-9-]+)', [
+		// Get single component data
+		register_rest_route( self::NAMESPACE, '/component', [
 			'methods'             => WP_REST_Server::READABLE,
-			'callback'            => [ __CLASS__, 'handle_preview' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'uuid'     => [
-					'required' => true,
-					'type'     => 'string',
-				],
-				'max_rows' => [
-					'default'           => 5,
-					'type'              => 'integer',
-					'sanitize_callback' => 'absint',
-				],
-			],
+			'callback'            => [ __CLASS__, 'get_component_data' ],
+			'permission_callback' => [ __CLASS__, 'check_permissions' ],
+			'args'                => self::get_component_args(),
 		] );
 
-		// Start import
-		register_rest_route( self::NAMESPACE, '/import/start', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_import_start' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'file_uuid'    => [
-					'required' => true,
-					'type'     => 'string',
-				],
-				'field_map'    => [
-					'required' => true,
-					'type'     => 'object',
-				],
-			],
-		] );
-
-		// Process import batch
-		register_rest_route( self::NAMESPACE, '/import/batch', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_import_batch' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'file_uuid'    => [
-					'required' => true,
-					'type'     => 'string',
-				],
-				'offset'       => [
-					'required'          => true,
-					'type'              => 'integer',
-					'sanitize_callback' => 'absint',
-				],
-				'field_map'    => [
-					'required' => true,
-					'type'     => 'object',
-				],
-			],
-		] );
-
-		// Start sync
-		register_rest_route( self::NAMESPACE, '/sync/start', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_sync_start' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-			],
-		] );
-
-		// Process sync batch
-		register_rest_route( self::NAMESPACE, '/sync/batch', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_sync_batch' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'cursor'       => [
-					'default' => '',
-					'type'    => 'string',
-				],
-			],
-		] );
-
-		// Complete operation
-		register_rest_route( self::NAMESPACE, '/complete', [
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => [ __CLASS__, 'handle_complete' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
-			'args'                => [
-				'page_id'      => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'operation_id' => [
-					'required'          => true,
-					'type'              => 'string',
-					'sanitize_callback' => 'sanitize_key',
-				],
-				'status'       => [
-					'default' => 'complete',
-					'type'    => 'string',
-					'enum'    => [ 'complete', 'cancelled', 'error' ],
-				],
-				'duration'     => [
-					'default'           => 0,
-					'type'              => 'integer',
-					'sanitize_callback' => 'absint',
-				],
-				'file_uuid'    => [
-					'type' => 'string',
-				],
-			],
-		] );
-
-		// Get operation stats
-		register_rest_route( self::NAMESPACE, '/stats/(?P<page_id>[a-z0-9_-]+)/(?P<operation_id>[a-z0-9_-]+)', [
+		// Get all components for a tab (for refresh)
+		register_rest_route( self::NAMESPACE, '/components', [
 			'methods'             => WP_REST_Server::READABLE,
-			'callback'            => [ __CLASS__, 'handle_get_stats' ],
-			'permission_callback' => [ __CLASS__, 'check_permission' ],
+			'callback'            => [ __CLASS__, 'get_all_components_data' ],
+			'permission_callback' => [ __CLASS__, 'check_permissions' ],
+			'args'                => self::get_tab_args(),
+		] );
+
+		// Start export
+		register_rest_route( self::NAMESPACE, '/export/start', [
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => [ __CLASS__, 'start_export' ],
+			'permission_callback' => [ __CLASS__, 'check_permissions' ],
+			'args'                => self::get_export_start_args(),
+		] );
+
+		// Process export batch
+		register_rest_route( self::NAMESPACE, '/export/batch', [
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => [ __CLASS__, 'process_export_batch' ],
+			'permission_callback' => [ __CLASS__, 'check_batch_permissions' ],
+			'args'                => self::get_export_batch_args(),
 		] );
 	}
 
 	/**
-	 * Check if the current user has permission.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return bool|WP_Error
+	 * Get component endpoint args.
 	 */
-	public static function check_permission( WP_REST_Request $request ) {
-		$page_id = $request->get_param( 'page_id' );
+	private static function get_component_args(): array {
+		return [
+			'report_id'    => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'component_id' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_preset'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_start'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'date_end'     => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+		];
+	}
 
-		if ( $page_id ) {
-			$importers = Registry::instance()->get( $page_id );
+	/**
+	 * Get tab endpoint args.
+	 */
+	private static function get_tab_args(): array {
+		return [
+			'report_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'tab'         => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_preset' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_start'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'date_end'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+		];
+	}
 
-			if ( $importers ) {
-				$capability = $importers->get_config( 'capability', 'manage_options' );
+	/**
+	 * Get export start endpoint args.
+	 */
+	private static function get_export_start_args(): array {
+		return [
+			'report_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'export_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_preset' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+			'date_start'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'date_end'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'filters'     => [ 'type' => 'object', 'default' => [] ],
+		];
+	}
 
-				if ( ! current_user_can( $capability ) ) {
-					return new WP_Error(
-						'rest_forbidden',
-						__( 'You do not have permission to perform this action.', 'arraypress' ),
-						[ 'status' => 403 ]
-					);
-				}
+	/**
+	 * Get export batch endpoint args.
+	 */
+	private static function get_export_batch_args(): array {
+		return [
+			'export_token' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'batch'        => [ 'required' => true, 'type' => 'integer' ],
+		];
+	}
 
-				return true;
-			}
+	/**
+	 * Check permissions for REST API access.
+	 */
+	public static function check_permissions( WP_REST_Request $request ) {
+		$report_id = $request->get_param( 'report_id' );
+		$report    = Registry::instance()->get( $report_id );
+
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_report', __( 'Invalid report ID.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		// Default to manage_options
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error(
-				'rest_forbidden',
-				__( 'You do not have permission to perform this action.', 'arraypress' ),
-				[ 'status' => 403 ]
-			);
+		$capability = $report->get_config( 'capability', 'manage_options' );
+
+		if ( ! current_user_can( $capability ) ) {
+			return new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'arraypress' ), [ 'status' => 403 ] );
 		}
 
 		return true;
 	}
 
 	/**
-	 * Handle file upload.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
+	 * Check permissions for batch export requests.
 	 */
-	public static function handle_upload( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
+	public static function check_batch_permissions( WP_REST_Request $request ) {
+		$export_token = $request->get_param( 'export_token' );
+		$config       = get_transient( 'reports_export_' . $export_token );
 
-		// Verify operation exists
-		$importers = Registry::instance()->get( $page_id );
-		if ( ! $importers || ! $importers->has_operation( $operation_id ) ) {
-			return new WP_Error(
-				'invalid_operation',
-				__( 'Invalid operation specified.', 'arraypress' ),
-				[ 'status' => 400 ]
-			);
+		if ( ! $config ) {
+			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
-		// Handle the upload
-		$result = FileManager::handle_upload( $page_id );
+		$report = Registry::instance()->get( $config['report_id'] );
 
-		if ( is_wp_error( $result ) ) {
-			return $result;
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		return new WP_REST_Response( [
-			'success' => true,
-			'file'    => [
-				'uuid'          => $result['uuid'],
-				'original_name' => $result['original_name'],
-				'size'          => $result['size'],
-				'size_human'    => $result['size_human'],
-				'rows'          => $result['rows'],
-				'headers'       => $result['headers'],
-			],
-		], 200 );
+		$capability = $report->get_config( 'capability', 'manage_options' );
+
+		return current_user_can( $capability ) ? true : new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'arraypress' ), [ 'status' => 403 ] );
 	}
 
 	/**
-	 * Handle file preview request.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
+	 * Get component data.
 	 */
-	public static function handle_preview( WP_REST_Request $request ) {
-		$uuid     = $request->get_param( 'uuid' );
-		$max_rows = $request->get_param( 'max_rows' ) ?? 5;
+	public static function get_component_data( WP_REST_Request $request ) {
+		$report_id    = $request->get_param( 'report_id' );
+		$component_id = $request->get_param( 'component_id' );
+		$report       = Registry::instance()->get( $report_id );
 
-		$preview = FileManager::get_preview( $uuid, $max_rows );
+		$date_range = self::get_date_range_from_request( $request, $report );
+		$components = $report->get_components();
+		$component  = null;
 
-		if ( is_wp_error( $preview ) ) {
-			return $preview;
-		}
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'preview' => $preview,
-		], 200 );
-	}
-
-	/**
-	 * Handle import start.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_import_start( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
-		$file_uuid    = $request->get_param( 'file_uuid' );
-
-		// Get file info
-		$file_data = FileManager::get_file( $file_uuid );
-
-		if ( ! $file_data ) {
-			return new WP_Error(
-				'file_not_found',
-				__( 'Import file not found or expired.', 'arraypress' ),
-				[ 'status' => 404 ]
-			);
-		}
-
-		// Initialize stats
-		$stats = StatsManager::init_run(
-			$page_id,
-			$operation_id,
-			$file_data['original_name'],
-			$file_data['rows']
-		);
-
-		return new WP_REST_Response( [
-			'success'     => true,
-			'total_items' => $file_data['rows'],
-			'batch_size'  => self::get_batch_size( $page_id, $operation_id ),
-			'stats'       => $stats,
-		], 200 );
-	}
-
-	/**
-	 * Handle import batch processing.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_import_batch( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
-		$file_uuid    = $request->get_param( 'file_uuid' );
-		$offset       = $request->get_param( 'offset' );
-		$field_map    = $request->get_param( 'field_map' );
-
-		// Get operation
-		$importers = Registry::instance()->get( $page_id );
-		if ( ! $importers ) {
-			return new WP_Error(
-				'invalid_page',
-				__( 'Invalid importer page.', 'arraypress' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		$operation = $importers->get_operation( $operation_id );
-		if ( ! $operation || $operation['type'] !== 'import' ) {
-			return new WP_Error(
-				'invalid_operation',
-				__( 'Invalid import operation.', 'arraypress' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Get batch size
-		$batch_size = $operation['batch_size'] ?? 100;
-
-		// Read batch from file
-		$batch_data = FileManager::read_batch( $file_uuid, $offset, $batch_size );
-
-		if ( is_wp_error( $batch_data ) ) {
-			return $batch_data;
-		}
-
-		// Process each row
-		$results = [
-			'created'   => 0,
-			'updated'   => 0,
-			'skipped'   => 0,
-			'failed'    => 0,
-			'errors'    => [],
-			'processed' => 0,
-		];
-
-		$process_callback = $operation['process_callback'] ?? null;
-
-		if ( ! is_callable( $process_callback ) ) {
-			return new WP_Error(
-				'no_callback',
-				__( 'No process callback defined for this operation.', 'arraypress' ),
-				[ 'status' => 500 ]
-			);
-		}
-
-		$row_number = $offset + 1; // Start from 1-based row number (after header)
-
-		foreach ( $batch_data['rows'] as $row ) {
-			$row_number++;
-			$results['processed']++;
-
-			// Map fields according to field_map
-			$mapped_row = self::map_row( $row, $field_map, $operation['fields'] ?? [] );
-
-			// Skip empty rows if configured
-			if ( $operation['skip_empty_rows'] && self::is_empty_row( $mapped_row ) ) {
-				$results['skipped']++;
-				continue;
-			}
-
-			// Run validate callback if defined
-			if ( isset( $operation['validate_callback'] ) && is_callable( $operation['validate_callback'] ) ) {
-				$validation = call_user_func( $operation['validate_callback'], $mapped_row );
-
-				if ( is_wp_error( $validation ) ) {
-					$results['failed']++;
-					$results['errors'][] = [
-						'row'     => $row_number,
-						'item'    => self::get_row_identifier( $mapped_row ),
-						'message' => $validation->get_error_message(),
-					];
-					continue;
-				}
-			}
-
-			try {
-				$result = call_user_func( $process_callback, $mapped_row );
-
-				if ( is_wp_error( $result ) ) {
-					$results['failed']++;
-					$results['errors'][] = [
-						'row'     => $row_number,
-						'item'    => self::get_row_identifier( $mapped_row ),
-						'message' => $result->get_error_message(),
-					];
-				} elseif ( $result === 'created' ) {
-					$results['created']++;
-				} elseif ( $result === 'updated' ) {
-					$results['updated']++;
-				} elseif ( $result === 'skipped' ) {
-					$results['skipped']++;
-				} else {
-					// Assume success if truthy
-					$results['created']++;
-				}
-			} catch ( Exception $e ) {
-				$results['failed']++;
-				$results['errors'][] = [
-					'row'     => $row_number,
-					'item'    => self::get_row_identifier( $mapped_row ),
-					'message' => $e->getMessage(),
-				];
+		foreach ( $components as $tab_components ) {
+			if ( isset( $tab_components[ $component_id ] ) ) {
+				$component = $tab_components[ $component_id ];
+				break;
 			}
 		}
 
-		// Update stats
-		StatsManager::update_batch( $page_id, $operation_id, $results );
-
-		// Get updated stats
-		$stats = StatsManager::get_stats( $page_id, $operation_id );
-
-		// Calculate totals
-		$total_processed = $stats['created'] + $stats['updated'] + $stats['skipped'] + $stats['failed'];
-		$total_items     = $stats['source_total'] ?? $stats['total'];
-		$percentage      = $total_items > 0 ? round( ( $total_processed / $total_items ) * 100 ) : 0;
-
-		return new WP_REST_Response( [
-			'success'         => true,
-			'batch'           => floor( $offset / $batch_size ) + 1,
-			'processed'       => $results['processed'],
-			'created'         => $results['created'],
-			'updated'         => $results['updated'],
-			'skipped'         => $results['skipped'],
-			'failed'          => $results['failed'],
-			'errors'          => $results['errors'],
-			'has_more'        => $batch_data['has_more'],
-			'offset'          => $offset + $batch_data['count'],
-			'total_processed' => $total_processed,
-			'total_items'     => $total_items,
-			'percentage'      => $percentage,
-			'stats'           => $stats,
-		], 200 );
-	}
-
-	/**
-	 * Handle sync start.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_sync_start( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
-
-		// Initialize stats (total unknown until first fetch)
-		$stats = StatsManager::init_run( $page_id, $operation_id );
-
-		return new WP_REST_Response( [
-			'success'    => true,
-			'batch_size' => self::get_batch_size( $page_id, $operation_id ),
-			'stats'      => $stats,
-		], 200 );
-	}
-
-	/**
-	 * Handle sync batch processing.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_sync_batch( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
-		$cursor       = $request->get_param( 'cursor' );
-
-		// Get operation
-		$importers = Registry::instance()->get( $page_id );
-		if ( ! $importers ) {
-			return new WP_Error(
-				'invalid_page',
-				__( 'Invalid importer page.', 'arraypress' ),
-				[ 'status' => 400 ]
-			);
+		if ( ! $component ) {
+			return new WP_Error( 'invalid_component', __( 'Invalid component.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		$operation = $importers->get_operation( $operation_id );
-		if ( ! $operation || $operation['type'] !== 'sync' ) {
-			return new WP_Error(
-				'invalid_operation',
-				__( 'Invalid sync operation.', 'arraypress' ),
-				[ 'status' => 400 ]
-			);
-		}
+		$callback = $component['data_callback'] ?? null;
 
-		// Get batch size
-		$batch_size = $operation['batch_size'] ?? 100;
-
-		// Call data callback to fetch items
-		$data_callback = $operation['data_callback'] ?? null;
-
-		if ( ! is_callable( $data_callback ) ) {
-			return new WP_Error(
-				'no_data_callback',
-				__( 'No data callback defined for this sync operation.', 'arraypress' ),
-				[ 'status' => 500 ]
-			);
+		if ( ! $callback || ! is_callable( $callback ) ) {
+			return new WP_Error( 'invalid_callback', __( 'No data callback.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		try {
-			$fetch_result = call_user_func( $data_callback, $cursor, $batch_size );
+			$data = call_user_func( $callback, $date_range, $component );
+
+			return new WP_REST_Response( [
+				'success' => true,
+				'data'    => $data,
+				'type'    => $component['type'] ?? 'unknown'
+			] );
 		} catch ( Exception $e ) {
-			return new WP_Error(
-				'fetch_error',
-				$e->getMessage(),
-				[ 'status' => 500 ]
-			);
+			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
+		}
+	}
+
+	/**
+	 * Get all components data for refresh.
+	 *
+	 * Returns data in a format optimized for JS refresh.
+	 */
+	public static function get_all_components_data( WP_REST_Request $request ) {
+		$report_id = $request->get_param( 'report_id' );
+		$tab       = $request->get_param( 'tab' );
+		$report    = Registry::instance()->get( $report_id );
+
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'reports' ), [ 'status' => 404 ] );
 		}
 
-		// Validate fetch result
-		if ( ! is_array( $fetch_result ) || ! isset( $fetch_result['items'] ) ) {
-			return new WP_Error(
-				'invalid_fetch_result',
-				__( 'Data callback returned invalid result.', 'arraypress' ),
-				[ 'status' => 500 ]
-			);
+		$date_range     = self::get_date_range_from_request( $request, $report );
+		$all_components = $report->get_components();
+
+		// If no tab specified, use first tab
+		if ( empty( $tab ) ) {
+			$tabs = $report->get_tabs();
+			$tab  = array_key_first( $tabs );
 		}
 
-		$items      = $fetch_result['items'] ?? [];
-		$has_more   = $fetch_result['has_more'] ?? false;
-		$new_cursor = $fetch_result['cursor'] ?? '';
-		$total      = $fetch_result['total'] ?? null;
-
-		// Process each item
-		$results = [
-			'created'   => 0,
-			'updated'   => 0,
-			'skipped'   => 0,
-			'failed'    => 0,
-			'errors'    => [],
-			'processed' => 0,
-			'total'     => $total,
-		];
-
-		$process_callback = $operation['process_callback'] ?? null;
-
-		if ( ! is_callable( $process_callback ) ) {
-			return new WP_Error(
-				'no_callback',
-				__( 'No process callback defined for this operation.', 'arraypress' ),
-				[ 'status' => 500 ]
-			);
+		if ( ! isset( $all_components[ $tab ] ) ) {
+			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'reports' ), [ 'status' => 404 ] );
 		}
 
-		foreach ( $items as $item ) {
-			$results['processed']++;
+		// Collect filter values from request
+		$filters    = [];
+		$all_params = $request->get_params();
+		foreach ( $all_params as $key => $value ) {
+			if ( str_starts_with( $key, 'filter_' ) ) {
+				$filter_key             = substr( $key, 7 ); // Remove 'filter_' prefix
+				$filters[ $filter_key ] = sanitize_text_field( $value );
+			}
+		}
+		$date_range['filters'] = $filters;
+
+		$components_data = [];
+
+		foreach ( $all_components[ $tab ] as $component_id => $component ) {
+			$callback = $component['data_callback'] ?? null;
+			$type     = $component['type'] ?? 'unknown';
+
+			if ( ! $callback || ! is_callable( $callback ) ) {
+				continue;
+			}
 
 			try {
-				$result = call_user_func( $process_callback, $item );
+				$raw_data = call_user_func( $callback, $date_range, $component );
 
-				if ( is_wp_error( $result ) ) {
-					$results['failed']++;
-					$results['errors'][] = [
-						'item'    => self::get_item_identifier( $item ),
-						'message' => $result->get_error_message(),
-					];
-				} elseif ( $result === 'created' ) {
-					$results['created']++;
-				} elseif ( $result === 'updated' ) {
-					$results['updated']++;
-				} elseif ( $result === 'skipped' ) {
-					$results['skipped']++;
-				} else {
-					// Assume success if truthy
-					$results['created']++;
+				// Format response based on component type
+				switch ( $type ) {
+					case 'tile':
+						$value          = $raw_data['value'] ?? 0;
+						$previous_value = $raw_data['previous_value'] ?? null;
+
+						// Auto-calculate change
+						$change           = $raw_data['change'] ?? null;
+						$change_direction = $raw_data['change_direction'] ?? null;
+
+						if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+							$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
+							$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
+							$change           = abs( $change );
+						}
+
+						// Format value
+						$format    = $component['value_format'] ?? 'number';
+						$currency  = $component['currency'] ?? 'USD';
+						$formatted = self::format_value_for_api( $value, $format, $currency );
+
+						$components_data[ $component_id ] = [
+							'type'             => 'tile',
+							'value'            => $value,
+							'formatted_value'  => $formatted,
+							'change'           => $change,
+							'change_direction' => $change_direction,
+						];
+						break;
+
+					case 'chart':
+						$components_data[ $component_id ] = [
+							'type'     => 'chart',
+							'labels'   => $raw_data['labels'] ?? [],
+							'datasets' => $raw_data['datasets'] ?? [],
+						];
+						break;
+
+					case 'table':
+						$components_data[ $component_id ] = [
+							'type' => 'table',
+							'rows' => $raw_data['rows'] ?? $raw_data ?? [],
+						];
+						break;
+
+					default:
+						$components_data[ $component_id ] = [
+							'type' => $type,
+							'data' => $raw_data,
+						];
 				}
 			} catch ( Exception $e ) {
-				$results['failed']++;
-				$results['errors'][] = [
-					'item'    => self::get_item_identifier( $item ),
-					'message' => $e->getMessage(),
+				$components_data[ $component_id ] = [
+					'type'  => $type,
+					'error' => $e->getMessage(),
 				];
 			}
 		}
 
-		// Update stats
-		StatsManager::update_batch( $page_id, $operation_id, $results );
+		// Also process tiles within tiles_group components
+		foreach ( $all_components[ $tab ] as $component_id => $component ) {
+			if ( ( $component['type'] ?? '' ) !== 'tiles_group' ) {
+				continue;
+			}
 
-		// Get updated stats
-		$stats = StatsManager::get_stats( $page_id, $operation_id );
+			$tiles = $component['tiles'] ?? [];
+			foreach ( $tiles as $tile_id => $tile ) {
+				$tile_callback = $tile['data_callback'] ?? null;
+				if ( ! $tile_callback || ! is_callable( $tile_callback ) ) {
+					continue;
+				}
 
-		// Calculate totals
-		$total_processed = $stats['created'] + $stats['updated'] + $stats['skipped'] + $stats['failed'];
-		$total_items     = $stats['source_total'] ?? $total_processed;
-		$percentage      = $total_items > 0 ? round( ( $total_processed / $total_items ) * 100 ) : 0;
+				$full_tile_id = $component_id . '_' . $tile_id;
+
+				try {
+					$raw_data       = call_user_func( $tile_callback, $date_range, $tile );
+					$value          = $raw_data['value'] ?? 0;
+					$previous_value = $raw_data['previous_value'] ?? null;
+
+					// Auto-calculate change
+					$change           = $raw_data['change'] ?? null;
+					$change_direction = $raw_data['change_direction'] ?? null;
+
+					if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+						$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
+						$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
+						$change           = abs( $change );
+					}
+
+					// Format value
+					$format    = $tile['value_format'] ?? 'number';
+					$currency  = $tile['currency'] ?? 'USD';
+					$formatted = self::format_value_for_api( $value, $format, $currency );
+
+					$components_data[ $full_tile_id ] = [
+						'type'             => 'tile',
+						'value'            => $value,
+						'formatted_value'  => $formatted,
+						'change'           => $change,
+						'change_direction' => $change_direction,
+					];
+				} catch ( Exception $e ) {
+					$components_data[ $full_tile_id ] = [
+						'type'  => 'tile',
+						'error' => $e->getMessage(),
+					];
+				}
+			}
+		}
 
 		return new WP_REST_Response( [
-			'success'         => true,
-			'processed'       => $results['processed'],
-			'created'         => $results['created'],
-			'updated'         => $results['updated'],
-			'skipped'         => $results['skipped'],
-			'failed'          => $results['failed'],
-			'errors'          => $results['errors'],
-			'has_more'        => $has_more,
-			'cursor'          => $new_cursor,
-			'total_processed' => $total_processed,
-			'total_items'     => $total_items,
-			'percentage'      => $percentage,
-			'stats'           => $stats,
-		], 200 );
+			'success'    => true,
+			'components' => $components_data,
+		] );
 	}
 
 	/**
-	 * Handle operation completion.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response|WP_Error
+	 * Format a value for API response.
 	 */
-	public static function handle_complete( WP_REST_Request $request ) {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
-		$status       = $request->get_param( 'status' );
-		$duration     = $request->get_param( 'duration' );
-		$file_uuid    = $request->get_param( 'file_uuid' );
+	private static function format_value_for_api( $value, string $format, string $currency = 'USD' ): string {
+		switch ( $format ) {
+			case 'currency':
+				$cents = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
 
-		// Complete the stats
-		$stats = StatsManager::complete_run( $page_id, $operation_id, $status, $duration );
+				return format_currency( $cents, $currency );
 
-		// Clean up file if import
-		if ( $file_uuid ) {
-			FileManager::delete_file( $file_uuid );
-		}
+			case 'percentage':
+				return number_format( (float) $value, 1 ) . '%';
 
-		return new WP_REST_Response( [
-			'success' => true,
-			'stats'   => $stats,
-		], 200 );
-	}
+			case 'number':
+				return number_format( (int) $value );
 
-	/**
-	 * Handle get stats request.
-	 *
-	 * @param WP_REST_Request $request The request object.
-	 *
-	 * @return WP_REST_Response
-	 */
-	public static function handle_get_stats( WP_REST_Request $request ): WP_REST_Response {
-		$page_id      = $request->get_param( 'page_id' );
-		$operation_id = $request->get_param( 'operation_id' );
+			case 'decimal':
+				return number_format( (float) $value, 2 );
 
-		$stats = StatsManager::get_stats( $page_id, $operation_id );
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'stats'   => $stats,
-		], 200 );
-	}
-
-	/**
-	 * Get batch size for an operation.
-	 *
-	 * @param string $page_id      Page ID.
-	 * @param string $operation_id Operation ID.
-	 *
-	 * @return int
-	 */
-	private static function get_batch_size( string $page_id, string $operation_id ): int {
-		$importers = Registry::instance()->get( $page_id );
-
-		if ( $importers ) {
-			$operation = $importers->get_operation( $operation_id );
-
-			if ( $operation ) {
-				return $operation['batch_size'] ?? 100;
-			}
-		}
-
-		return 100;
-	}
-
-	/**
-	 * Map a CSV row to defined fields.
-	 *
-	 * @param array $row       Raw row data.
-	 * @param array $field_map Mapping of field_key => csv_column.
-	 * @param array $fields    Field definitions.
-	 *
-	 * @return array Mapped and sanitized data.
-	 */
-	private static function map_row( array $row, array $field_map, array $fields ): array {
-		$mapped = [];
-
-		foreach ( $field_map as $field_key => $csv_column ) {
-			$value = $row[ $csv_column ] ?? null;
-
-			// Apply sanitize callback if defined
-			if ( isset( $fields[ $field_key ]['sanitize_callback'] ) && is_callable( $fields[ $field_key ]['sanitize_callback'] ) ) {
-				$value = call_user_func( $fields[ $field_key ]['sanitize_callback'], $value );
-			} elseif ( $value !== null ) {
-				$value = sanitize_text_field( $value );
-			}
-
-			// Apply default if empty
-			if ( ( $value === null || $value === '' ) && isset( $fields[ $field_key ]['default'] ) ) {
-				$value = $fields[ $field_key ]['default'];
-			}
-
-			$mapped[ $field_key ] = $value;
-		}
-
-		return $mapped;
-	}
-
-	/**
-	 * Check if a row is empty.
-	 *
-	 * @param array $row Row data.
-	 *
-	 * @return bool
-	 */
-	private static function is_empty_row( array $row ): bool {
-		foreach ( $row as $value ) {
-			if ( $value !== null && $value !== '' ) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get a human-readable identifier for a row.
-	 *
-	 * @param array $row Row data.
-	 *
-	 * @return string
-	 */
-	private static function get_row_identifier( array $row ): string {
-		// Try common identifier fields
-		$id_fields = [ 'id', 'sku', 'email', 'name', 'title', 'slug' ];
-
-		foreach ( $id_fields as $field ) {
-			if ( ! empty( $row[ $field ] ) ) {
-				return (string) $row[ $field ];
-			}
-		}
-
-		// Return first non-empty value
-		foreach ( $row as $value ) {
-			if ( ! empty( $value ) ) {
+			default:
 				return (string) $value;
-			}
 		}
-
-		return __( 'Unknown', 'arraypress' );
 	}
 
 	/**
-	 * Get a human-readable identifier for an item.
-	 *
-	 * @param mixed $item Item data (object or array).
-	 *
-	 * @return string
+	 * Start export process.
 	 */
-	private static function get_item_identifier( $item ): string {
-		if ( is_object( $item ) ) {
-			$item = (array) $item;
+	public static function start_export( WP_REST_Request $request ) {
+		$report_id = $request->get_param( 'report_id' );
+		$export_id = $request->get_param( 'export_id' );
+		$filters   = $request->get_param( 'filters' ) ?? [];
+		$report    = Registry::instance()->get( $report_id );
+
+		$export_config = $report->find_export_config( $export_id );
+
+		if ( ! $export_config ) {
+			return new WP_Error( 'invalid_export', __( 'Invalid export.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		if ( ! is_array( $item ) ) {
-			return (string) $item;
+		if ( empty( $export_config['total_callback'] ) || ! is_callable( $export_config['total_callback'] ) ) {
+			return new WP_Error( 'invalid_callback', __( 'Missing total_callback.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
-		return self::get_row_identifier( $item );
+		if ( empty( $export_config['data_callback'] ) || ! is_callable( $export_config['data_callback'] ) ) {
+			return new WP_Error( 'invalid_callback', __( 'Missing data_callback.', 'arraypress' ), [ 'status' => 400 ] );
+		}
+
+		$date_range = self::get_date_range_from_request( $request, $report );
+		$args       = [ 'date_range' => $date_range, 'filters' => $filters ];
+
+		try {
+			$total_items = call_user_func( $export_config['total_callback'], $args );
+		} catch ( Exception $e ) {
+			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
+		}
+
+		if ( is_wp_error( $total_items ) ) {
+			return $total_items;
+		}
+
+		if ( $total_items === 0 ) {
+			return new WP_Error( 'no_data', __( 'No data to export.', 'arraypress' ), [ 'status' => 400 ] );
+		}
+
+		$report->cleanup_exports();
+
+		$export_token = wp_generate_uuid4();
+		$file_path    = $report->get_export_path( $export_token );
+
+		// Resolve filename now if it's a callback (can't serialize closures)
+		$filename = $export_config['filename'] ?? $export_id;
+		if ( is_callable( $filename ) ) {
+			$filename = call_user_func( $filename, $date_range, $export_config );
+		}
+
+		// Only store serializable data - no callbacks/closures
+		set_transient( 'reports_export_' . $export_token, [
+			'report_id'   => $report_id,
+			'export_id'   => $export_id,
+			'filters'     => $filters,
+			'date_range'  => $date_range,
+			'file_path'   => $file_path,
+			'total_items' => $total_items,
+			'filename'    => $filename,
+			'headers'     => $export_config['headers'] ?? [],
+		], HOUR_IN_SECONDS );
+
+		return new WP_REST_Response( [
+			'success'      => true,
+			'export_token' => $export_token,
+			'total_items'  => $total_items,
+			'batch_size'   => self::BATCH_SIZE,
+		] );
+	}
+
+	/**
+	 * Process export batch.
+	 */
+	public static function process_export_batch( WP_REST_Request $request ) {
+		$export_token = $request->get_param( 'export_token' );
+		$batch        = (int) $request->get_param( 'batch' );
+
+		$config = get_transient( 'reports_export_' . $export_token );
+
+		if ( ! $config ) {
+			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
+		}
+
+		$report = Registry::instance()->get( $config['report_id'] );
+
+		if ( ! $report ) {
+			return new WP_Error( 'invalid_config', __( 'Report not found.', 'arraypress' ), [ 'status' => 400 ] );
+		}
+
+		// Re-fetch export config from report (contains callbacks we couldn't serialize)
+		$export_config = $report->find_export_config( $config['export_id'] );
+
+		if ( ! $export_config ) {
+			return new WP_Error( 'invalid_config', __( 'Export config not found.', 'arraypress' ), [ 'status' => 400 ] );
+		}
+
+		$args = [
+			'date_range' => $config['date_range'],
+			'filters'    => $config['filters'],
+			'offset'     => $batch * self::BATCH_SIZE,
+			'limit'      => self::BATCH_SIZE,
+		];
+
+		try {
+			$data = call_user_func( $export_config['data_callback'], $args );
+		} catch ( Exception $e ) {
+			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
+		}
+
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
+
+		// Use headers from transient (already resolved) or from export config
+		$headers = $config['headers'] ?? $export_config['headers'] ?? [];
+		$report->write_csv_batch( $config['file_path'], $data, $batch === 0, $headers );
+
+		$processed_items = ( $batch * self::BATCH_SIZE ) + count( $data );
+		$is_complete     = $processed_items >= $config['total_items'] || count( $data ) < self::BATCH_SIZE;
+
+		$response = [
+			'success'         => true,
+			'processed_items' => $processed_items,
+			'total_items'     => $config['total_items'],
+			'is_complete'     => $is_complete,
+		];
+
+		if ( $is_complete ) {
+			$response['download_url'] = $report->get_download_url( $export_token );
+		}
+
+		return new WP_REST_Response( $response );
+	}
+
+	/**
+	 * Handle export file downloads via AJAX.
+	 */
+	public static function handle_download_export(): void {
+		$export_token = sanitize_text_field( $_GET['export_id'] ?? '' );
+		$config       = get_transient( 'reports_export_' . $export_token );
+
+		if ( ! $config ) {
+			wp_die( __( 'Export not found or expired.', 'arraypress' ) );
+		}
+
+		$report = Registry::instance()->get( $config['report_id'] );
+
+		if ( ! $report ) {
+			wp_die( __( 'Invalid report.', 'arraypress' ) );
+		}
+
+		if ( ! current_user_can( $report->get_config( 'capability', 'manage_options' ) ) ) {
+			wp_die( __( 'Permission denied.', 'arraypress' ) );
+		}
+
+		if ( ! wp_verify_nonce( $_GET['nonce'] ?? '', 'reports_export_' . $export_token ) ) {
+			wp_die( __( 'Invalid request.', 'arraypress' ) );
+		}
+
+		if ( ! isset( $config['file_path'] ) || ! file_exists( $config['file_path'] ) ) {
+			wp_die( __( 'File not found.', 'arraypress' ) );
+		}
+
+		// Use pre-resolved filename from transient (already resolved from callback in start_export)
+		$base_filename = $config['filename'] ?? $config['export_id'] ?? 'export';
+
+		$filename = sanitize_file_name( $base_filename . '-' . gmdate( 'Y-m-d' ) . '.csv' );
+
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . filesize( $config['file_path'] ) );
+		header( 'Cache-Control: no-store, no-cache, must-revalidate' );
+		header( 'Pragma: no-cache' );
+		header( 'Expires: 0' );
+
+		readfile( $config['file_path'] );
+
+		unlink( $config['file_path'] );
+		delete_transient( 'reports_export_' . $export_token );
+
+		exit;
+	}
+
+	/**
+	 * Get date range from request parameters.
+	 *
+	 * @param WP_REST_Request $request The REST request.
+	 * @param Reports         $report  The report instance.
+	 *
+	 * @return array Date range with UTC and local representations.
+	 */
+	protected static function get_date_range_from_request( WP_REST_Request $request, Reports $report ): array {
+		$preset     = $request->get_param( 'date_preset' );
+		$date_start = $request->get_param( 'date_start' );
+		$date_end   = $request->get_param( 'date_end' );
+
+		// Use default preset if none specified
+		if ( empty( $preset ) ) {
+			$preset = $report->get_config( 'default_preset', 'this_month' );
+		}
+
+		return Dates::get_range_full( $preset, $date_start ?? '', $date_end ?? '' );
 	}
 
 }

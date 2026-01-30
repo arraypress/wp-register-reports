@@ -1,8 +1,8 @@
 <?php
 /**
- * Importers Registry
+ * Reports Registry
  *
- * @package     ArrayPress\RegisterImporters
+ * @package     ArrayPress\RegisterReports
  * @copyright   Copyright (c) 2025, ArrayPress Limited
  * @license     GPL2+
  * @since       1.0.0
@@ -10,12 +10,12 @@
 
 declare( strict_types=1 );
 
-namespace ArrayPress\RegisterImporters;
+namespace ArrayPress\RegisterReports;
 
 /**
  * Class Registry
  *
- * Singleton registry for managing multiple importer pages.
+ * Singleton registry for managing multiple report pages.
  */
 class Registry {
 
@@ -27,11 +27,11 @@ class Registry {
 	private static ?Registry $instance = null;
 
 	/**
-	 * Registered importer pages.
+	 * Registered report pages.
 	 *
-	 * @var array<string, Importers>
+	 * @var array<string, Reports>
 	 */
-	private array $importers = [];
+	private array $reports = [];
 
 	/**
 	 * Get singleton instance.
@@ -53,58 +53,58 @@ class Registry {
 	}
 
 	/**
-	 * Register an importers instance.
+	 * Register a reports instance.
 	 *
-	 * @param string    $id        Unique identifier.
-	 * @param Importers $importers Importers instance.
+	 * @param string  $id      Unique identifier.
+	 * @param Reports $reports Reports instance.
 	 *
 	 * @return void
 	 */
-	public static function register( string $id, Importers $importers ): void {
-		self::instance()->importers[ $id ] = $importers;
+	public static function register( string $id, Reports $reports ): void {
+		self::instance()->reports[ $id ] = $reports;
 	}
 
 	/**
-	 * Get a registered importers page.
+	 * Get a registered reports page.
 	 *
-	 * @param string $id Importers ID.
+	 * @param string $id Reports ID.
 	 *
-	 * @return Importers|null
+	 * @return Reports|null
 	 */
-	public function get( string $id ): ?Importers {
-		return $this->importers[ $id ] ?? null;
+	public function get( string $id ): ?Reports {
+		return $this->reports[ $id ] ?? null;
 	}
 
 	/**
-	 * Check if an importers page is registered.
+	 * Check if a reports page is registered.
 	 *
-	 * @param string $id Importers ID.
+	 * @param string $id Reports ID.
 	 *
 	 * @return bool
 	 */
 	public function has( string $id ): bool {
-		return isset( $this->importers[ $id ] );
+		return isset( $this->reports[ $id ] );
 	}
 
 	/**
-	 * Get all registered importers pages.
+	 * Get all registered reports pages.
 	 *
-	 * @return array<string, Importers>
+	 * @return array<string, Reports>
 	 */
 	public function all(): array {
-		return $this->importers;
+		return $this->reports;
 	}
 
 	/**
-	 * Unregister an importers page.
+	 * Unregister a reports page.
 	 *
-	 * @param string $id Importers ID.
+	 * @param string $id Reports ID.
 	 *
 	 * @return bool
 	 */
 	public function unregister( string $id ): bool {
-		if ( isset( $this->importers[ $id ] ) ) {
-			unset( $this->importers[ $id ] );
+		if ( isset( $this->reports[ $id ] ) ) {
+			unset( $this->reports[ $id ] );
 
 			return true;
 		}
