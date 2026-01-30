@@ -1,528 +1,277 @@
-# WordPress Reports Registration Library
+# WordPress Register Importers
 
-A comprehensive WordPress library for creating beautiful, feature-rich admin report pages with tiles, charts, tables,
-and CSV exports.
+A WordPress library for registering import and sync operations with batch processing, field mapping, and progress tracking. Create professional data management interfaces with minimal code.
 
 ## Features
 
-- **Tiles** - Display key metrics with icons, colors, and auto-calculated comparison percentages
-- **Charts** - Line, bar, pie, doughnut charts powered by Chart.js
-- **Tables** - Sortable, paginated tables with row actions (edit, view, delete)
-- **Exports** - Batched CSV exports with filters and progress tracking
-- **Tab Filters** - Per-tab filters (dropdowns, checkboxes) that affect all components
-- **Date Picker** - Preset ranges (Today, This Week, This Month, etc.) or custom dates
-- **AJAX Refresh** - Manual refresh button or auto-refresh at configurable intervals
-- **Modern Header** - Full-width header with optional logo, refresh controls, and date picker
+- **Unified Registration API** - Single function to register both sync and import operations
+- **Tabbed Interface** - Organize operations with a clean, WordPress-native tabbed UI
+- **Batch Processing** - Process large datasets without timeouts using AJAX batches
+- **CSV Imports** - Upload, preview, map fields, and import CSV files
+- **API Syncs** - Pull data from external APIs with cursor-based pagination
+- **Progress Tracking** - Real-time progress bars and activity logs
+- **Automatic Stats** - Track created, updated, skipped, and failed items
+- **Secure File Handling** - UUID filenames, protected directories, auto-cleanup
+- **Error Reporting** - Detailed error logs with row numbers
 
 ## Requirements
 
-- PHP 7.4+
-- WordPress 5.8+
+- PHP 8.1 or higher
+- WordPress 6.0 or higher
+- Composer
 
 ## Installation
 
 ```bash
-composer require arraypress/wp-register-reports
+composer require arraypress/wp-register-importers
 ```
 
 ## Quick Start
 
 ```php
-register_reports( 'my-analytics', [
-	'page_title'   => 'Analytics Dashboard',
-	'menu_title'   => 'Analytics',
-	'parent_slug'  => 'tools.php',
-	'show_refresh' => true,
-
-	'tabs' => [
-		'overview' => [
-			'label' => 'Overview',
-			'icon'  => 'dashicons-dashboard',
-		],
-		'sales'    => [
-			'label'   => 'Sales',
-			'icon'    => 'dashicons-cart',
-			'filters' => [
-				'status' => [
-					'type'    => 'select',
-					'label'   => 'Status',
-					'options' => [
-						''          => 'All',
-						'completed' => 'Completed',
-						'pending'   => 'Pending',
-					],
-				],
-			],
-		],
-	],
-
-	'components' => [
-		'revenue' => [
-			'type'          => 'tile',
-			'title'         => 'Total Revenue',
-			'tab'           => 'overview',
-			'icon'          => 'money-alt',
-			'icon_color'    => 'green',
-			'value_format'  => 'currency',
-			'data_callback' => 'my_get_revenue',
-		],
-
-		'revenue_chart' => [
-			'type'          => 'chart',
-			'title'         => 'Revenue Trend',
-			'tab'           => 'overview',
-			'chart_type'    => 'line',
-			'height'        => 300,
-			'data_callback' => 'my_get_revenue_chart',
-		],
-	],
-] );
-
-// Tile callback - return value and previous_value for auto-calculated change %
-function my_get_revenue( array $date_range, array $config ): array {
-	return [
-		'value'          => 150000,  // In cents for currency
-		'previous_value' => 120000,  // Auto-calculates +25% change
-	];
-}
-
-// Chart callback
-function my_get_revenue_chart( array $date_range, array $config ): array {
-	return [
-		'labels'   => [ 'Jan', 'Feb', 'Mar', 'Apr', 'May' ],
-		'datasets' => [
-			[
-				'label' => 'Revenue',
-				'data'  => [ 1200, 1900, 3000, 5000, 4000 ],
-			],
-		],
-	];
-}
+add_action( 'admin_menu', function() {
+    register_importers( 'my-plugin', [
+        'page_title'  => 'Import & Sync',
+        'menu_title'  => 'Import & Sync',
+        'parent_slug' => 'my-plugin',
+        
+        'operations' => [
+            // Sync from external API
+            'api_products' => [
+                'type'             => 'sync',
+                'title'            => 'Sync Products',
+                'description'      => 'Pull products from external API',
+                'batch_size'       => 100,
+                'data_callback'    => 'my_fetch_products',
+                'process_callback' => 'my_process_product',
+            ],
+            
+            // Import from CSV
+            'csv_products' => [
+                'type'             => 'import',
+                'title'            => 'Import Products',
+                'description'      => 'Upload products via CSV',
+                'batch_size'       => 100,
+                'fields'           => [
+                    'sku'   => ['label' => 'SKU', 'required' => true],
+                    'name'  => ['label' => 'Name', 'required' => true],
+                    'price' => ['label' => 'Price', 'required' => true, 'sanitize_callback' => 'floatval'],
+                ],
+                'process_callback' => 'my_import_product',
+            ],
+        ],
+    ]);
+}, 20 );
 ```
 
 ## Configuration Options
 
-### Report-Level Options
+### Page Options
 
-```php
-register_reports( 'my-reports', [
-	// Basic
-	'page_title'       => 'My Reports',
-	'menu_title'       => 'Reports',
-	'menu_slug'        => 'my-reports',
-	'capability'       => 'manage_options',
-	'parent_slug'      => '',                // Empty = top-level menu
-	'icon'             => 'dashicons-chart-area',
-	'position'         => null,
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `page_title` | string | 'Import & Sync' | Page title shown in browser |
+| `menu_title` | string | 'Import & Sync' | Menu item text |
+| `menu_slug` | string | (id) | URL slug for the page |
+| `capability` | string | 'manage_options' | Required capability |
+| `parent_slug` | string | '' | Parent menu slug (for submenu) |
+| `icon` | string | 'dashicons-database-import' | Menu icon (top-level only) |
+| `position` | int | null | Menu position |
+| `logo` | string | '' | URL to header logo image |
+| `header_title` | string | (page_title) | Custom header title |
+| `show_title` | bool | true | Show page title |
+| `show_tabs` | bool | true | Show tab navigation |
 
-	// Header
-	'show_title'       => true,
-	'header_title'     => '',                // Override page_title in header
-	'logo'             => '',                // URL to logo image
-
-	// Features
-	'show_tabs'        => true,
-	'show_date_picker' => true,
-	'show_refresh'     => true,              // Manual refresh button
-	'auto_refresh'     => 0,                 // Seconds between auto-refresh (0 = disabled)
-
-	// Exports
-	'exports_columns'  => 4,                 // Number of export cards per row
-
-	// Date presets
-	'date_presets'     => [
-		'today'      => 'Today',
-		'yesterday'  => 'Yesterday',
-		'this_week'  => 'This Week',
-		'this_month' => 'This Month',
-		'custom'     => 'Custom Range',
-	],
-	'default_preset'   => 'this_month',
-
-	// Help screen
-	'help_tabs'        => [
-		'overview' => [
-			'title'   => 'Overview',
-			'content' => '<p>Help content here...</p>',
-		],
-	],
-
-	// Data
-	'tabs'             => [],
-	'components'       => [],
-	'exports'          => [],
-] );
-```
-
-### Tab Options with Filters
-
-Tabs can have filters that appear in a bar below the tabs. Filter values are passed to all component callbacks via
-`$date_range['filters']`.
+### Tab Options
 
 ```php
 'tabs' => [
-	'overview'  => [
-		'label' => 'Overview',
-		'icon'  => 'dashicons-dashboard',
-	],
-	'sales'     => [
-		'label'           => 'Sales',
-		'icon'            => 'dashicons-chart-bar',
-		'filters'         => [
-			'category'    => [
-				'type'    => 'select',
-				'label'   => 'Category',
-				'default' => '',
-				'options' => [
-					''            => 'All Categories',
-					'electronics' => 'Electronics',
-					'clothing'    => 'Clothing',
-				],
-			],
-			'status'      => [
-				'type'    => 'select',
-				'label'   => 'Status',
-				'options' => [
-					''          => 'All',
-					'completed' => 'Completed',
-					'pending'   => 'Pending',
-				],
-			],
-			'exclude_tax' => [
-				'type'  => 'checkbox',
-				'label' => 'Exclude Tax',
-			],
-		],
-		'exports_columns' => 3,  // Override exports columns for this tab
-	],
-	'customers' => [
-		'label'   => 'Customers',
-		'icon'    => 'dashicons-groups',
-		'filters' => [
-			'country' => [
-				'type'    => 'select',
-				'label'   => 'Country',
-				'options' => [
-					''   => 'All Countries',
-					'US' => 'United States',
-					'UK' => 'United Kingdom',
-				],
-			],
-			'type'    => [
-				'type'    => 'select',
-				'label'   => 'Type',
-				'options' => [
-					''          => 'All',
-					'new'       => 'New Customers',
-					'returning' => 'Returning',
-				],
-			],
-		],
-	],
+    'syncs' => [
+        'label' => 'External Syncs',
+        'icon'  => 'dashicons-update',
+    ],
+    'importers' => [
+        'label' => 'CSV Importers', 
+        'icon'  => 'dashicons-upload',
+    ],
 ],
 ```
 
-**Filter Types:**
+### Sync Operation Options
 
-- `select` - Dropdown with options
-- `checkbox` - Toggle checkbox
-- `text` - Text input with optional placeholder
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `type` | string | Yes | Must be 'sync' |
+| `title` | string | Yes | Display title |
+| `description` | string | No | Short description |
+| `tab` | string | No | Tab to display in (default: 'syncs') |
+| `icon` | string | No | Dashicon class |
+| `singular` | string | No | Singular item name (default: 'item') |
+| `plural` | string | No | Plural item name (default: 'items') |
+| `batch_size` | int | No | Items per batch (default: 100) |
+| `data_callback` | callable | Yes | Function to fetch data from API |
+| `process_callback` | callable | Yes | Function to process each item |
 
-**Accessing Filters in Callbacks:**
+### Import Operation Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `type` | string | Yes | Must be 'import' |
+| `title` | string | Yes | Display title |
+| `description` | string | No | Short description |
+| `tab` | string | No | Tab to display in (default: 'importers') |
+| `icon` | string | No | Dashicon class |
+| `singular` | string | No | Singular item name |
+| `plural` | string | No | Plural item name |
+| `batch_size` | int | No | Rows per batch (default: 100) |
+| `fields` | array | Yes | Field definitions for mapping |
+| `update_existing` | bool | No | Allow updating existing records |
+| `match_field` | string | No | Field to match for updates |
+| `skip_empty_rows` | bool | No | Skip rows with all empty values |
+| `validate_callback` | callable | No | Custom validation function |
+| `process_callback` | callable | Yes | Function to process each row |
+
+### Field Definition Options
 
 ```php
-function my_callback( array $date_range, array $config ): array {
-	$filters  = $date_range['filters'] ?? [];
-	$category = $filters['category'] ?? '';
-	$status   = $filters['status'] ?? '';
-
-	// Adjust query based on filters...
-
-	return [ 'value' => $result ];
-}
-```
-
-### Tile Component
-
-```php
-'my_tile' => [
-	'type'          => 'tile',
-	'title'         => 'Total Users',
-	'tab'           => 'overview',
-	'icon'          => 'admin-users',      // Shorthand or 'dashicons-admin-users'
-	'icon_color'    => 'blue',             // blue, green, red, orange, purple, gray
-	'value_format'  => 'number',           // number, currency, percentage, decimal, text
-	'currency'      => 'USD',              // For currency format
-	'data_callback' => 'my_callback',
+'fields' => [
+    'sku' => [
+        'label'             => 'SKU',
+        'required'          => true,
+        'default'           => null,
+        'sanitize_callback' => 'sanitize_text_field',
+    ],
+    'price' => [
+        'label'             => 'Price',
+        'required'          => true,
+        'sanitize_callback' => 'floatval',
+    ],
 ],
 ```
 
-**Tile Callback - Auto-calculated change:**
+## Callbacks
+
+### Data Callback (Sync Only)
+
+Fetches a batch of items from an external API.
 
 ```php
-function my_callback( array $date_range, array $config ): array {
-	return [
-		'value'          => 1500,
-		'previous_value' => 1200,  // Auto-calculates +25% up
-	];
+function my_fetch_products( string $cursor, int $batch_size ): array {
+    $response = my_api_client()->get_products([
+        'limit'          => $batch_size,
+        'starting_after' => $cursor,
+    ]);
+    
+    return [
+        'items'    => $response->data,           // Array of items to process
+        'has_more' => $response->has_more,       // bool: more items available?
+        'cursor'   => $response->last_id,        // string: cursor for next batch
+        'total'    => $response->total ?? null,  // int|null: total count if known
+    ];
 }
 ```
 
-**Tile Callback - Manual change:**
+### Process Callback (Both Sync and Import)
+
+Processes a single item or row. Returns the result status.
 
 ```php
-function my_callback( array $date_range, array $config ): array {
-	return [
-		'value'            => 1500,
-		'change'           => 25,        // Percentage
-		'change_direction' => 'up',      // 'up', 'down', 'neutral'
-	];
+function my_process_product( $item ): string|WP_Error {
+    // $item is an object (sync) or array (import)
+    
+    // Validate
+    if ( empty( $item['sku'] ) ) {
+        return new WP_Error( 'missing_sku', 'SKU is required' );
+    }
+    
+    // Check if exists
+    $existing = get_product_by_sku( $item['sku'] );
+    
+    if ( $existing ) {
+        // Update
+        update_product( $existing->id, $item );
+        return 'updated';
+    } else {
+        // Create
+        create_product( $item );
+        return 'created';
+    }
+    
+    // Other valid returns: 'skipped'
 }
 ```
 
-### Tiles Group Component
+### Validate Callback (Import Only)
 
-Group multiple tiles with a shared title:
-
-```php
-'key_metrics' => [
-	'type'    => 'tiles_group',
-	'title'   => 'Key Metrics',
-	'tab'     => 'overview',
-	'columns' => 4,  // 2, 3, or 4
-	'tiles'   => [
-		'users'   => [
-			'title'         => 'Total Users',
-			'icon'          => 'admin-users',
-			'icon_color'    => 'blue',
-			'value_format'  => 'number',
-			'data_callback' => 'get_total_users',
-		],
-		'revenue' => [
-			'title'         => 'Revenue',
-			'icon'          => 'money-alt',
-			'icon_color'    => 'green',
-			'value_format'  => 'currency',
-			'currency'      => 'GBP',
-			'data_callback' => 'get_revenue',
-		],
-	],
-],
-```
-
-### Chart Component
+Optional pre-processing validation.
 
 ```php
-'my_chart' => [
-	'type'          => 'chart',
-	'title'         => 'Sales Over Time',
-	'tab'           => 'overview',
-	'chart_type'    => 'line',   // line, bar, pie, doughnut
-	'height'        => 300,
-	'stacked'       => false,    // For bar charts
-	'data_callback' => 'my_chart_callback',
-],
-```
-
-**Chart Callback:**
-
-```php
-function my_chart_callback( array $date_range, array $config ): array {
-	return [
-		'labels'   => [ 'Jan', 'Feb', 'Mar' ],
-		'datasets' => [
-			[
-				'label' => 'Sales',
-				'data'  => [ 100, 200, 150 ],
-			],
-			[
-				'label' => 'Returns',
-				'data'  => [ 10, 15, 8 ],
-			],
-		],
-	];
+function my_validate_row( array $row ): true|WP_Error {
+    if ( strlen( $row['sku'] ) < 3 ) {
+        return new WP_Error( 'invalid_sku', 'SKU must be at least 3 characters' );
+    }
+    
+    return true;
 }
 ```
 
-### Table Component with Row Actions
+## Helper Functions
 
 ```php
-'my_table' => [
-	'type'          => 'table',
-	'title'         => 'Recent Orders',
-	'tab'           => 'overview',
-	'sortable'      => true,
-	'paginated'     => true,
-	'per_page'      => 10,
-	'columns'       => [
-		'id'       => 'Order ID',
-		'customer' => 'Customer',
-		'total'    => [
-			'label'  => 'Total',
-			'format' => 'currency',
-		],
-		'status'   => 'Status',
-	],
-	'row_actions'   => [
-		'view'   => [
-			'label' => 'View',
-			'url'   => admin_url( 'admin.php?page=orders&id={id}' ),
-		],
-		'edit'   => [
-			'label'        => 'Edit',
-			'url_callback' => function ( $row ) {
-				return get_edit_post_link( $row['post_id'] );
-			},
-		],
-		'delete' => [
-			'label'   => 'Delete',
-			'url'     => '#',
-			'class'   => 'delete',      // Red styling
-			'confirm' => 'Are you sure?',
-			'target'  => '_blank',      // Optional
-		],
-	],
-	'data_callback' => 'my_table_callback',
-],
-```
+// Get a registered importers page
+$importers = get_importer( 'my-plugin' );
 
-**Row Actions Features:**
-
-- `url` - URL template with `{column}` placeholders
-- `url_callback` - Function receiving `$row` array, returns URL
-- `class` - CSS class (`delete` or `trash` = red styling)
-- `confirm` - JavaScript confirm dialog message
-- `target` - Link target (`_blank` for new tab)
-
-**Table Callback:**
-
-```php
-function my_table_callback( array $date_range, array $config ): array {
-	return [
-		[ 'id' => 1, 'customer' => 'John', 'total' => 9900, 'status' => 'Completed' ],
-		[ 'id' => 2, 'customer' => 'Jane', 'total' => 15000, 'status' => 'Pending' ],
-	];
-}
-```
-
-### Export Configuration
-
-```php
-'exports' => [
-	'orders_export' => [
-		'title'          => 'Export Orders',
-		'description'    => 'Download all orders as CSV.',
-		'tab'            => 'exports',
-		'filename'       => 'orders',  // Or use callback
-		'headers'        => [
-			'id'       => 'Order ID',
-			'customer' => 'Customer',
-			'total'    => 'Total',
-		],
-		'filters'        => [
-			'status' => [
-				'type'    => 'select',
-				'label'   => 'Status',
-				'options' => [
-					''          => 'All',
-					'completed' => 'Completed',
-					'pending'   => 'Pending',
-				],
-			],
-		],
-		'total_callback' => 'get_total_orders',
-		'data_callback'  => 'get_orders_batch',
-	],
-],
-```
-
-**Dynamic Filename:**
-
-```php
-'filename' => function ( array $date_range, array $config ): string {
-	return 'orders-' . $date_range['start_local'] . '-to-' . $date_range['end_local'];
-},
-```
-
-**Export Callbacks:**
-
-```php
-function get_total_orders( array $args ): int {
-	$filters = $args['filters'] ?? [];
-
-	// Return total count
-	return 1000;
+// Check if exists
+if ( importer_exists( 'my-plugin' ) ) {
+    // ...
 }
 
-function get_orders_batch( array $args ): array {
-	$offset  = $args['offset'];
-	$limit   = $args['limit'];
-	$filters = $args['filters'] ?? [];
+// Get stats for an operation
+$stats = get_importer_stats( 'my-plugin', 'api_products' );
+// Returns: ['last_run', 'duration', 'total', 'created', 'updated', 'skipped', 'failed', 'errors', 'history']
 
-	// Return batch of rows
-	return [
-		[ 'id' => 1, 'customer' => 'John', 'total' => '$99.00' ],
-		// ...
-	];
-}
+// Clear stats
+clear_importer_stats( 'my-plugin', 'api_products' );
+
+// Unregister
+unregister_importer( 'my-plugin' );
+
+// Get all registered
+$all = get_all_importers();
 ```
 
-## Date Range
+## File Security
 
-The `$date_range` array passed to callbacks:
+Uploaded CSV files are stored securely:
 
-```php
-[
-	'start'       => '2024-01-01 00:00:00',  // UTC
-	'end'         => '2024-01-31 23:59:59',  // UTC
-	'start_local' => '2024-01-01',           // Local Y-m-d
-	'end_local'   => '2024-01-31',           // Local Y-m-d
-	'preset'      => 'this_month',           // Selected preset
-	'filters'     => [                       // Tab filter values
-		'category' => 'electronics',
-		'status'   => '',
-	],
-]
-```
+- **Location**: `/wp-content/uploads/importers/{page_id}/{uuid}.csv`
+- **UUID Filenames**: Original filenames are never used
+- **Protected Directory**: `.htaccess` and `index.php` block direct access
+- **Auto-Cleanup**: Files deleted after import completion
+- **Expiration**: Abandoned files cleaned up after 24 hours
 
-## Value Formats
+## Stats Storage
 
-| Format       | Description               | Example  |
-|--------------|---------------------------|----------|
-| `number`     | Integer with commas       | 1,234    |
-| `decimal`    | Two decimal places        | 1,234.56 |
-| `currency`   | Currency (value in cents) | $12.34   |
-| `percentage` | With % symbol             | 12.3%    |
-| `text`       | Raw text                  | Active   |
+Stats are stored in WordPress options:
 
-## Icon Colors
+- **Option Key**: `importers_stats_{page_id}_{operation_id}`
+- **Auto-Tracked**: No custom callback required
+- **History**: Last 20 runs stored per operation
 
-- `blue` - #2271b1
-- `green` - #00a32a
-- `red` - #d63638
-- `orange` - #dba617
-- `purple` - #8b5cf6
-- `gray` - #646970
+## REST API Endpoints
 
-## Auto-Refresh
+The library registers endpoints under `importers/v1/`:
 
-```php
-register_reports( 'live-dashboard', [
-	'auto_refresh' => 30,   // Refresh every 30 seconds
-	'show_refresh' => true, // Also show manual button
-] );
-```
-
-- Components refresh via AJAX without page reload
-- "Last updated: Xs ago" timestamp in header
-- Auto-refresh pauses when browser tab is hidden
-- Manual refresh resets the timer
-
-## Chart.js
-
-Charts require Chart.js v4.5.1 at `assets/js/chart.umd.min.js`.
-
-Download: https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/upload` | POST | Upload CSV file |
+| `/preview/{uuid}` | GET | Get CSV preview |
+| `/import/start` | POST | Initialize import |
+| `/import/batch` | POST | Process import batch |
+| `/sync/start` | POST | Initialize sync |
+| `/sync/batch` | POST | Process sync batch |
+| `/complete` | POST | Mark operation complete |
+| `/stats/{page}/{op}` | GET | Get operation stats |
 
 ## License
 
