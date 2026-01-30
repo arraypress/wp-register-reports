@@ -180,7 +180,7 @@ trait ExportHandler {
 
 		?>
 		<div class="reports-exports-section">
-			<h3 class="reports-exports-section-title"><?php esc_html_e( 'Export', 'developer-portal' ); ?></h3>
+			<h3 class="reports-exports-section-title"><?php esc_html_e( 'Export', 'arraypress' ); ?></h3>
 			<div class="reports-exports-grid<?php echo esc_attr( $columns_class ); ?>">
 				<?php foreach ( $exports as $export_id => $export ) : ?>
 					<?php $this->render_export_card( $export_id, $export ); ?>
@@ -201,14 +201,14 @@ trait ExportHandler {
 	protected function render_export_card( string $export_id, array $export ): void {
 		// Normalize icon - allow both 'dashicons-download' and 'download'
 		$icon = $export['icon'] ?? 'download';
-		if ( strpos( $icon, 'dashicons-' ) !== 0 ) {
+		if ( ! str_starts_with( $icon, 'dashicons-' ) ) {
 			$icon = 'dashicons-' . $icon;
 		}
 
 		?>
 		<div class="reports-export-card" data-export-id="<?php echo esc_attr( $export_id ); ?>">
 			<h4 class="reports-export-title">
-				<?php echo esc_html( $export['title'] ?? __( 'Export Data', 'developer-portal' ) ); ?>
+				<?php echo esc_html( $export['title'] ?? __( 'Export Data', 'arraypress' ) ); ?>
 			</h4>
 
 			<?php if ( ! empty( $export['description'] ) ) : ?>
@@ -229,7 +229,7 @@ trait ExportHandler {
 					<div class="reports-export-progress-fill"></div>
 				</div>
 				<div class="reports-export-progress-info">
-					<span class="reports-export-progress-label"><?php esc_html_e( 'Preparing...', 'developer-portal' ); ?></span>
+					<span class="reports-export-progress-label"><?php esc_html_e( 'Preparing...', 'arraypress' ); ?></span>
 					<span class="reports-export-progress-percent">0%</span>
 				</div>
 			</div>
@@ -238,7 +238,7 @@ trait ExportHandler {
 			        class="button button-primary reports-export-button"
 			        data-export-id="<?php echo esc_attr( $export_id ); ?>"
 			        data-report-id="<?php echo esc_attr( $this->id ); ?>">
-				<?php echo esc_html( $export['button_text'] ?? __( 'Generate CSV', 'developer-portal' ) ); ?>
+				<?php echo esc_html( $export['button_text'] ?? __( 'Generate CSV', 'arraypress' ) ); ?>
 			</button>
 		</div>
 		<?php
@@ -395,14 +395,14 @@ trait ExportHandler {
 			       name="<?php echo esc_attr( $field_name ); ?>_start"
 			       value="<?php echo esc_attr( $default_start ); ?>"
 			       class="reports-filter-input"
-			       placeholder="<?php esc_attr_e( 'Start Date', 'developer-portal' ); ?>">
-			<span class="reports-daterange-separator"><?php esc_html_e( 'to', 'developer-portal' ); ?></span>
+			       placeholder="<?php esc_attr_e( 'Start Date', 'arraypress' ); ?>">
+			<span class="reports-daterange-separator"><?php esc_html_e( 'to', 'arraypress' ); ?></span>
 			<input type="date"
 			       id="<?php echo esc_attr( $field_id ); ?>_end"
 			       name="<?php echo esc_attr( $field_name ); ?>_end"
 			       value="<?php echo esc_attr( $default_end ); ?>"
 			       class="reports-filter-input"
-			       placeholder="<?php esc_attr_e( 'End Date', 'developer-portal' ); ?>">
+			       placeholder="<?php esc_attr_e( 'End Date', 'arraypress' ); ?>">
 		</div>
 		<?php
 	}

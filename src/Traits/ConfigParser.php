@@ -144,29 +144,29 @@ trait ConfigParser {
 
 			case 'chart':
 				$component = wp_parse_args( $component, [
-					'chart_type'     => 'line',  // line, bar, pie, doughnut, area
-					'height'         => 300,
-					'show_legend'    => true,
+					'chart_type'      => 'line',  // line, bar, pie, doughnut, area
+					'height'          => 300,
+					'show_legend'     => true,
 					'legend_position' => 'top',
-					'colors'         => [],
-					'stacked'        => false,
-					'fill'           => false,
-					'tension'        => 0.4,
-					'x_axis_label'   => '',
-					'y_axis_label'   => '',
-					'tooltip_format' => '',
+					'colors'          => [],
+					'stacked'         => false,
+					'fill'            => false,
+					'tension'         => 0.4,
+					'x_axis_label'    => '',
+					'y_axis_label'    => '',
+					'tooltip_format'  => '',
 				] );
 				break;
 
 			case 'table':
 				$component = wp_parse_args( $component, [
-					'columns'        => [],
-					'sortable'       => true,
-					'searchable'     => false,
-					'paginated'      => true,
-					'per_page'       => 10,
-					'empty_message'  => __( 'No data available.', 'reports' ),
-					'row_actions'    => [],
+					'columns'       => [],
+					'sortable'      => true,
+					'searchable'    => false,
+					'paginated'     => true,
+					'per_page'      => 10,
+					'empty_message' => __( 'No data available.', 'reports' ),
+					'row_actions'   => [],
 				] );
 				break;
 

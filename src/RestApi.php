@@ -75,14 +75,6 @@ class RestApi {
 			'args'                => self::get_tab_args(),
 		] );
 
-		// Refresh entire tab (legacy)
-		register_rest_route( self::NAMESPACE, '/tab', [
-			'methods'             => WP_REST_Server::READABLE,
-			'callback'            => [ __CLASS__, 'get_tab_data' ],
-			'permission_callback' => [ __CLASS__, 'check_permissions' ],
-			'args'                => self::get_tab_args(),
-		] );
-
 		// Start export
 		register_rest_route( self::NAMESPACE, '/export/start', [
 			'methods'             => WP_REST_Server::CREATABLE,
@@ -158,13 +150,13 @@ class RestApi {
 		$report    = Registry::instance()->get( $report_id );
 
 		if ( ! $report ) {
-			return new WP_Error( 'invalid_report', __( 'Invalid report ID.', 'developer-portal' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_report', __( 'Invalid report ID.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		$capability = $report->get_config( 'capability', 'manage_options' );
 
 		if ( ! current_user_can( $capability ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'developer-portal' ), [ 'status' => 403 ] );
+			return new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'arraypress' ), [ 'status' => 403 ] );
 		}
 
 		return true;
@@ -178,18 +170,18 @@ class RestApi {
 		$config       = get_transient( 'reports_export_' . $export_token );
 
 		if ( ! $config ) {
-			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		$report = Registry::instance()->get( $config['report_id'] );
 
 		if ( ! $report ) {
-			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'developer-portal' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		$capability = $report->get_config( 'capability', 'manage_options' );
 
-		return current_user_can( $capability ) ? true : new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'developer-portal' ), [ 'status' => 403 ] );
+		return current_user_can( $capability ) ? true : new WP_Error( 'rest_forbidden', __( 'Permission denied.', 'arraypress' ), [ 'status' => 403 ] );
 	}
 
 	/**
@@ -204,7 +196,7 @@ class RestApi {
 		$components = $report->get_components();
 		$component  = null;
 
-		foreach ( $components as $tab => $tab_components ) {
+		foreach ( $components as $tab_components ) {
 			if ( isset( $tab_components[ $component_id ] ) ) {
 				$component = $tab_components[ $component_id ];
 				break;
@@ -212,18 +204,23 @@ class RestApi {
 		}
 
 		if ( ! $component ) {
-			return new WP_Error( 'invalid_component', __( 'Invalid component.', 'developer-portal' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_component', __( 'Invalid component.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		$callback = $component['data_callback'] ?? null;
 
 		if ( ! $callback || ! is_callable( $callback ) ) {
-			return new WP_Error( 'invalid_callback', __( 'No data callback.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_callback', __( 'No data callback.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		try {
 			$data = call_user_func( $callback, $date_range, $component );
-			return new WP_REST_Response( [ 'success' => true, 'data' => $data, 'type' => $component['type'] ?? 'unknown' ] );
+
+			return new WP_REST_Response( [
+				'success' => true,
+				'data'    => $data,
+				'type'    => $component['type'] ?? 'unknown'
+			] );
 		} catch ( Exception $e ) {
 			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
 		}
@@ -243,7 +240,7 @@ class RestApi {
 			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'reports' ), [ 'status' => 404 ] );
 		}
 
-		$date_range = self::get_date_range_from_request( $request, $report );
+		$date_range     = self::get_date_range_from_request( $request, $report );
 		$all_components = $report->get_components();
 
 		// If no tab specified, use first tab
@@ -257,11 +254,11 @@ class RestApi {
 		}
 
 		// Collect filter values from request
-		$filters = [];
+		$filters    = [];
 		$all_params = $request->get_params();
 		foreach ( $all_params as $key => $value ) {
-			if ( strpos( $key, 'filter_' ) === 0 ) {
-				$filter_key = substr( $key, 7 ); // Remove 'filter_' prefix
+			if ( str_starts_with( $key, 'filter_' ) ) {
+				$filter_key             = substr( $key, 7 ); // Remove 'filter_' prefix
 				$filters[ $filter_key ] = sanitize_text_field( $value );
 			}
 		}
@@ -297,9 +294,9 @@ class RestApi {
 						}
 
 						// Format value
-						$format     = $component['value_format'] ?? 'number';
-						$currency   = $component['currency'] ?? 'USD';
-						$formatted  = self::format_value_for_api( $value, $format, $currency );
+						$format    = $component['value_format'] ?? 'number';
+						$currency  = $component['currency'] ?? 'USD';
+						$formatted = self::format_value_for_api( $value, $format, $currency );
 
 						$components_data[ $component_id ] = [
 							'type'             => 'tile',
@@ -403,7 +400,8 @@ class RestApi {
 		switch ( $format ) {
 			case 'currency':
 				$cents = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
-				return function_exists( 'format_currency' ) ? format_currency( $cents, $currency ) : '$' . number_format( $cents / 100, 2 );
+
+				return format_currency( $cents, $currency );
 
 			case 'percentage':
 				return number_format( (float) $value, 1 ) . '%';
@@ -420,41 +418,6 @@ class RestApi {
 	}
 
 	/**
-	 * Get tab data.
-	 */
-	public static function get_tab_data( WP_REST_Request $request ) {
-		$report_id = $request->get_param( 'report_id' );
-		$tab       = $request->get_param( 'tab' );
-		$report    = Registry::instance()->get( $report_id );
-
-		$date_range = self::get_date_range_from_request( $request, $report );
-		$components = $report->get_components();
-
-		if ( ! isset( $components[ $tab ] ) ) {
-			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'developer-portal' ), [ 'status' => 404 ] );
-		}
-
-		$tab_data = [];
-
-		foreach ( $components[ $tab ] as $component_id => $component ) {
-			$callback = $component['data_callback'] ?? null;
-
-			if ( $callback && is_callable( $callback ) ) {
-				try {
-					$tab_data[ $component_id ] = [
-						'type' => $component['type'] ?? 'unknown',
-						'data' => call_user_func( $callback, $date_range, $component ),
-					];
-				} catch ( Exception $e ) {
-					$tab_data[ $component_id ] = [ 'type' => $component['type'] ?? 'unknown', 'error' => $e->getMessage() ];
-				}
-			}
-		}
-
-		return new WP_REST_Response( [ 'success' => true, 'data' => $tab_data ] );
-	}
-
-	/**
 	 * Start export process.
 	 */
 	public static function start_export( WP_REST_Request $request ) {
@@ -466,15 +429,15 @@ class RestApi {
 		$export_config = $report->find_export_config( $export_id );
 
 		if ( ! $export_config ) {
-			return new WP_Error( 'invalid_export', __( 'Invalid export.', 'developer-portal' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_export', __( 'Invalid export.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		if ( empty( $export_config['total_callback'] ) || ! is_callable( $export_config['total_callback'] ) ) {
-			return new WP_Error( 'invalid_callback', __( 'Missing total_callback.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_callback', __( 'Missing total_callback.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		if ( empty( $export_config['data_callback'] ) || ! is_callable( $export_config['data_callback'] ) ) {
-			return new WP_Error( 'invalid_callback', __( 'Missing data_callback.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_callback', __( 'Missing data_callback.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		$date_range = self::get_date_range_from_request( $request, $report );
@@ -491,7 +454,7 @@ class RestApi {
 		}
 
 		if ( $total_items === 0 ) {
-			return new WP_Error( 'no_data', __( 'No data to export.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'no_data', __( 'No data to export.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		$report->cleanup_exports();
@@ -535,20 +498,20 @@ class RestApi {
 		$config = get_transient( 'reports_export_' . $export_token );
 
 		if ( ! $config ) {
-			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		$report = Registry::instance()->get( $config['report_id'] );
 
 		if ( ! $report ) {
-			return new WP_Error( 'invalid_config', __( 'Report not found.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_config', __( 'Report not found.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		// Re-fetch export config from report (contains callbacks we couldn't serialize)
 		$export_config = $report->find_export_config( $config['export_id'] );
 
 		if ( ! $export_config ) {
-			return new WP_Error( 'invalid_config', __( 'Export config not found.', 'developer-portal' ), [ 'status' => 400 ] );
+			return new WP_Error( 'invalid_config', __( 'Export config not found.', 'arraypress' ), [ 'status' => 400 ] );
 		}
 
 		$args = [
@@ -597,25 +560,25 @@ class RestApi {
 		$config       = get_transient( 'reports_export_' . $export_token );
 
 		if ( ! $config ) {
-			wp_die( __( 'Export not found or expired.', 'developer-portal' ) );
+			wp_die( __( 'Export not found or expired.', 'arraypress' ) );
 		}
 
 		$report = Registry::instance()->get( $config['report_id'] );
 
 		if ( ! $report ) {
-			wp_die( __( 'Invalid report.', 'developer-portal' ) );
+			wp_die( __( 'Invalid report.', 'arraypress' ) );
 		}
 
 		if ( ! current_user_can( $report->get_config( 'capability', 'manage_options' ) ) ) {
-			wp_die( __( 'Permission denied.', 'developer-portal' ) );
+			wp_die( __( 'Permission denied.', 'arraypress' ) );
 		}
 
 		if ( ! wp_verify_nonce( $_GET['nonce'] ?? '', 'reports_export_' . $export_token ) ) {
-			wp_die( __( 'Invalid request.', 'developer-portal' ) );
+			wp_die( __( 'Invalid request.', 'arraypress' ) );
 		}
 
 		if ( ! isset( $config['file_path'] ) || ! file_exists( $config['file_path'] ) ) {
-			wp_die( __( 'File not found.', 'developer-portal' ) );
+			wp_die( __( 'File not found.', 'arraypress' ) );
 		}
 
 		// Use pre-resolved filename from transient (already resolved from callback in start_export)
@@ -640,29 +603,23 @@ class RestApi {
 
 	/**
 	 * Get date range from request parameters.
+	 *
+	 * @param WP_REST_Request $request The REST request.
+	 * @param Reports         $report  The report instance.
+	 *
+	 * @return array Date range with UTC and local representations.
 	 */
 	protected static function get_date_range_from_request( WP_REST_Request $request, Reports $report ): array {
 		$preset     = $request->get_param( 'date_preset' );
 		$date_start = $request->get_param( 'date_start' );
 		$date_end   = $request->get_param( 'date_end' );
 
-		if ( $preset === 'custom' && $date_start && $date_end ) {
-			$utc_range = Dates::range_to_utc( $date_start . ' 00:00:00', $date_end . ' 23:59:59' );
-
-			return [
-				'start'       => $utc_range['start'],
-				'end'         => $utc_range['end'],
-				'start_local' => $date_start,
-				'end_local'   => $date_end,
-				'preset'      => 'custom',
-			];
-		}
-
+		// Use default preset if none specified
 		if ( empty( $preset ) ) {
 			$preset = $report->get_config( 'default_preset', 'this_month' );
 		}
 
-		return $report->calculate_date_range( $preset );
+		return Dates::get_range_full( $preset, $date_start ?? '', $date_end ?? '' );
 	}
 
 }

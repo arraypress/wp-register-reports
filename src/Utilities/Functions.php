@@ -8,7 +8,8 @@
  * @since       1.0.0
  */
 
-namespace ArrayPress\RegisterReports;
+use ArrayPress\RegisterReports\Reports;
+use ArrayPress\RegisterReports\Registry;
 
 if ( ! function_exists( __NAMESPACE__ . '\\register_reports' ) ) {
 	/**

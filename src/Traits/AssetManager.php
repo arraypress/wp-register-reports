@@ -59,7 +59,7 @@ trait AssetManager {
 		wp_enqueue_composer_script(
 			'arraypress-chartjs',
 			__FILE__,
-			'js/chart.umd.min.js',
+			'js/chart.js',
 			[]
 		);
 
@@ -78,20 +78,34 @@ trait AssetManager {
 	 */
 	protected function localize_scripts(): void {
 		wp_localize_script( 'arraypress-reports', 'ReportsAdmin', [
-			'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-			'restUrl'   => rest_url( 'reports/v1/' ),
-			'restNonce' => wp_create_nonce( 'wp_rest' ),
-			'reportId'  => $this->id,
-			'dateRange' => $this->date_range,
-			'i18n'      => [
-				'loading'    => __( 'Loading...', 'developer-portal' ),
-				'error'      => __( 'Error', 'developer-portal' ),
-				'noData'     => __( 'No data available', 'developer-portal' ),
-				'exporting'  => __( 'Exporting...', 'developer-portal' ),
-				'preparing'  => __( 'Preparing export...', 'developer-portal' ),
-				'processing' => __( 'Processing', 'developer-portal' ),
-				'complete'   => __( 'Export complete!', 'developer-portal' ),
-				'download'   => __( 'Download CSV', 'developer-portal' ),
+			'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+			'restUrl'       => rest_url( 'reports/v1/' ),
+			'restNonce'     => wp_create_nonce( 'wp_rest' ),
+			'reportId'      => $this->id,
+			'dateRange'     => $this->date_range,
+			'i18n'          => [
+				// General
+				'loading'        => __( 'Loading...', 'arraypress' ),
+				'error'          => __( 'Error', 'arraypress' ),
+				'noData'         => __( 'No data available', 'arraypress' ),
+
+				// Export
+				'exporting'      => __( 'Exporting...', 'arraypress' ),
+				'preparing'      => __( 'Preparing export...', 'arraypress' ),
+				'processing'     => __( 'Processing %1$d / %2$d', 'arraypress' ),
+				'complete'       => __( 'Export complete!', 'arraypress' ),
+				'download'       => __( 'Download CSV', 'arraypress' ),
+				'exportFailed'   => __( 'Export failed', 'arraypress' ),
+				'batchFailed'    => __( 'Batch failed', 'arraypress' ),
+
+				// Refresh / Last Updated
+				'updatedJustNow' => __( 'Updated just now', 'arraypress' ),
+				'updatedSeconds' => __( 'Updated %ds ago', 'arraypress' ),
+				'updatedMinutes' => __( 'Updated %dm ago', 'arraypress' ),
+				'updatedHours'   => __( 'Updated %dh ago', 'arraypress' ),
+
+				// Table Pagination
+				'showing'        => __( 'Showing %1$d-%2$d of %3$d', 'arraypress' ),
 			],
 			'chartDefaults' => [
 				'colors' => [
