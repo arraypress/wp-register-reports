@@ -16,11 +16,8 @@
 	box-sizing: border-box;
 }
 
-/* Fix help screen dropdown */
-#screen-meta,
-#screen-meta-links {
+.reports .metabox-prefs {
 	margin: 0;
-	margin-left: -20px;
 }
 
 /* ==========================================================================
@@ -186,6 +183,7 @@
 .reports-filter-field input[type="text"] {
 	min-width: 150px;
 	height: 32px;
+	max-width: none;
 }
 
 .reports-filter-field.reports-filter-checkbox {
@@ -811,6 +809,7 @@ button.reports-date-picker-toggle.button {
 	display: flex;
 	flex-direction: column;
 	align-self: start;
+	min-height: 200px;
 }
 
 .reports-export-title {

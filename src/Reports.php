@@ -156,11 +156,42 @@ class Reports {
         add_action( 'admin_menu', [ $this, 'register_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'maybe_enqueue_assets' ] );
 
+        // Add body class for styling
+        add_filter( 'admin_body_class', [ $this, 'add_body_class' ] );
+
         // Fix menu highlight for submenu pages
         if ( ! empty( $this->config['parent_slug'] ) ) {
             add_filter( 'parent_file', [ $this, 'fix_parent_menu_highlight' ] );
             add_filter( 'submenu_file', [ $this, 'fix_submenu_highlight' ] );
         }
+    }
+
+    /**
+     * Add custom body class to the reports page.
+     *
+     * @param string $classes Space-separated list of body classes.
+     *
+     * @return string
+     */
+    public function add_body_class( string $classes ): string {
+        $screen = get_current_screen();
+
+        if ( ! $screen || $screen->id !== $this->hook_suffix ) {
+            return $classes;
+        }
+
+        // Add generic reports class
+        $classes .= ' reports';
+
+        // Add report-specific class
+        $classes .= ' reports-' . $this->id;
+
+        // Add custom class from config if provided
+        if ( ! empty( $this->config['body_class'] ) ) {
+            $classes .= ' ' . sanitize_html_class( $this->config['body_class'] );
+        }
+
+        return $classes;
     }
 
     /**
