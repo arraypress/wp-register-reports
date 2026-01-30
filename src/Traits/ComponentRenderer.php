@@ -412,13 +412,52 @@ trait ComponentRenderer {
         $rows          = $data['rows'] ?? $data ?? [];
         $empty_message = $component['empty_message'] ?? __( 'No data available.', 'reports' );
         $row_actions   = $component['row_actions'] ?? [];
+        $is_paginated  = ! empty( $component['paginated'] );
+        $per_page      = $component['per_page'] ?? 10;
 
         $width_class = $this->get_width_class( $component['width'] ?? 'full' );
+
+        // Prepare column config for JavaScript (for refresh support)
+        $js_columns = [];
+        foreach ( $columns as $key => $column ) {
+            $column_key   = is_string( $key ) ? $key : $column;
+            $column_label = is_array( $column ) ? ( $column['label'] ?? $key ) : $column;
+            $column_format = is_array( $column ) ? ( $column['format'] ?? '' ) : '';
+
+            $js_columns[] = [
+                    'key'    => $column_key,
+                    'label'  => $column_label,
+                    'format' => $column_format,
+            ];
+        }
+
+        // Prepare row actions config for JavaScript
+        $js_row_actions = [];
+        foreach ( $row_actions as $action_key => $action ) {
+            $js_row_actions[] = [
+                    'key'     => $action_key,
+                    'label'   => $action['label'] ?? ucfirst( $action_key ),
+                    'url'     => $action['url'] ?? '#',
+                    'class'   => $action['class'] ?? '',
+                    'confirm' => $action['confirm'] ?? '',
+                    'target'  => $action['target'] ?? '',
+            ];
+        }
+
+        // Build table config data attribute
+        $table_config = [
+                'columns'      => $js_columns,
+                'rowActions'   => $js_row_actions,
+                'emptyMessage' => $empty_message,
+                'paginated'    => $is_paginated,
+                'perPage'      => $per_page,
+        ];
 
         ?>
         <div class="reports-table-wrapper <?php echo esc_attr( $width_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
              data-component-id="<?php echo esc_attr( $component_id ); ?>"
-             data-ajax-refresh="<?php echo ! empty( $component['ajax_refresh'] ) ? 'true' : 'false'; ?>">
+             data-ajax-refresh="<?php echo ! empty( $component['ajax_refresh'] ) ? 'true' : 'false'; ?>"
+             data-table-config="<?php echo esc_attr( wp_json_encode( $table_config ) ); ?>">
 
             <?php if ( ! empty( $component['title'] ) ) : ?>
                 <div class="reports-table-header">
@@ -429,64 +468,70 @@ trait ComponentRenderer {
                 </div>
             <?php endif; ?>
 
-            <?php if ( empty( $rows ) ) : ?>
-                <div class="reports-table-empty">
-                    <p><?php echo esc_html( $empty_message ); ?></p>
-                </div>
-            <?php else : ?>
-                <table class="reports-table widefat striped">
-                    <thead>
-                    <tr>
-                        <?php foreach ( $columns as $key => $column ) :
-                            $column_label = is_array( $column ) ? ( $column['label'] ?? $key ) : $column;
-                            $is_sortable = $component['sortable'] ?? false;
-                            if ( is_array( $column ) && isset( $column['sortable'] ) ) {
-                                $is_sortable = $column['sortable'];
-                            }
-                            ?>
-                            <th class="<?php echo $is_sortable ? 'sortable' : ''; ?>"
-                                data-column="<?php echo esc_attr( $key ); ?>">
-                                <?php echo esc_html( $column_label ); ?>
-                            </th>
-                        <?php endforeach; ?>
-                        <?php if ( ! empty( $row_actions ) ) : ?>
-                            <th class="reports-table-actions-col"><?php esc_html_e( 'Actions', 'reports' ); ?></th>
-                        <?php endif; ?>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php foreach ( $rows as $row ) : ?>
+            <div class="reports-table-container"
+                 data-paginated="<?php echo $is_paginated ? 'true' : 'false'; ?>"
+                 data-per-page="<?php echo esc_attr( $per_page ); ?>">
+
+                <?php if ( empty( $rows ) ) : ?>
+                    <div class="reports-table-empty">
+                        <p><?php echo esc_html( $empty_message ); ?></p>
+                    </div>
+                <?php else : ?>
+                    <table class="reports-table widefat striped">
+                        <thead>
                         <tr>
                             <?php foreach ( $columns as $key => $column ) :
-                                $column_key = is_string( $key ) ? $key : $column;
-                                $cell_value = $row[ $column_key ] ?? '';
-                                $format = is_array( $column ) ? ( $column['format'] ?? '' ) : '';
-
-                                if ( $format ) {
-                                    $cell_value = $this->format_value( $cell_value, $format );
+                                $column_key   = is_string( $key ) ? $key : $column;
+                                $column_label = is_array( $column ) ? ( $column['label'] ?? $key ) : $column;
+                                $is_sortable = $component['sortable'] ?? false;
+                                if ( is_array( $column ) && isset( $column['sortable'] ) ) {
+                                    $is_sortable = $column['sortable'];
                                 }
                                 ?>
-                                <td data-column="<?php echo esc_attr( $column_key ); ?>">
-                                    <?php echo wp_kses_post( $cell_value ); ?>
-                                </td>
+                                <th class="<?php echo $is_sortable ? 'sortable' : ''; ?>"
+                                    data-column="<?php echo esc_attr( $column_key ); ?>">
+                                    <?php echo esc_html( $column_label ); ?>
+                                </th>
                             <?php endforeach; ?>
                             <?php if ( ! empty( $row_actions ) ) : ?>
-                                <td class="reports-table-actions">
-                                    <?php $this->render_row_actions( $row_actions, $row ); ?>
-                                </td>
+                                <th class="reports-table-actions-col"><?php esc_html_e( 'Actions', 'reports' ); ?></th>
                             <?php endif; ?>
                         </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        <?php foreach ( $rows as $row ) : ?>
+                            <tr>
+                                <?php foreach ( $columns as $key => $column ) :
+                                    $column_key = is_string( $key ) ? $key : $column;
+                                    $cell_value = $row[ $column_key ] ?? '';
+                                    $format = is_array( $column ) ? ( $column['format'] ?? '' ) : '';
 
-                <?php if ( ! empty( $component['paginated'] ) && count( $rows ) > ( $component['per_page'] ?? 10 ) ) : ?>
-                    <div class="reports-table-pagination">
-                        <span class="reports-table-info"></span>
-                        <div class="reports-table-pages"></div>
-                    </div>
+                                    if ( $format ) {
+                                        $cell_value = $this->format_value( $cell_value, $format );
+                                    }
+                                    ?>
+                                    <td data-column="<?php echo esc_attr( $column_key ); ?>">
+                                        <?php echo wp_kses_post( $cell_value ); ?>
+                                    </td>
+                                <?php endforeach; ?>
+                                <?php if ( ! empty( $row_actions ) ) : ?>
+                                    <td class="reports-table-actions">
+                                        <?php $this->render_row_actions( $row_actions, $row ); ?>
+                                    </td>
+                                <?php endif; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <?php if ( $is_paginated && count( $rows ) > $per_page ) : ?>
+                        <div class="reports-table-pagination">
+                            <span class="reports-table-info"></span>
+                            <div class="reports-table-pages"></div>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
-            <?php endif; ?>
+            </div>
 
             <div class="reports-table-loading" style="display: none;">
                 <span class="spinner is-active"></span>

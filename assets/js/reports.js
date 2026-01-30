@@ -29,6 +29,20 @@
         charts: {},
 
         /**
+         * Original chart configurations for refresh (preserves styling)
+         *
+         * @type {Object.<string, Object>}
+         */
+        chartConfigs: {},
+
+        /**
+         * Table column configurations for refresh
+         *
+         * @type {Object.<string, Object>}
+         */
+        tableConfigs: {},
+
+        /**
          * Auto-refresh interval timer
          *
          * @type {number|null}
@@ -308,12 +322,12 @@
                     return;
                 }
 
-                if ($component.hasClass('reports-tile')) {
+                if (data.type === 'tile' || $component.hasClass('reports-tile')) {
                     this.updateTile($component, data);
-                } else if ($component.hasClass('reports-chart-wrapper')) {
+                } else if (data.type === 'chart' || $component.hasClass('reports-chart-wrapper')) {
                     this.updateChart(componentId, data);
-                } else if ($component.hasClass('reports-table-wrapper')) {
-                    this.updateTable($component, data);
+                } else if (data.type === 'table' || $component.hasClass('reports-table-wrapper')) {
+                    this.updateTable($component, componentId, data);
                 }
             });
         },
@@ -353,38 +367,282 @@
         /**
          * Update a chart component with new data
          *
+         * Preserves the original chart styling (colors, tension, fill, etc.)
+         * while updating only the data values.
+         *
          * @param {string} chartId - Chart identifier
          * @param {Object} data    - Chart data with labels and datasets
          * @returns {void}
          */
         updateChart: function (chartId, data) {
             const chart = this.charts[chartId];
+            const originalConfig = this.chartConfigs[chartId];
 
             if (!chart || !data.labels || !data.datasets) {
                 return;
             }
 
+            // Update labels
             chart.data.labels = data.labels;
-            chart.data.datasets = data.datasets;
+
+            // Update datasets while preserving styling from original config
+            const defaultColors = ReportsAdmin.chartDefaults?.colors || [
+                '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+                '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+            ];
+
+            chart.data.datasets = data.datasets.map((newDataset, index) => {
+                // Get original dataset styling if available
+                const originalDataset = originalConfig?.data?.datasets?.[index] || {};
+                const color = defaultColors[index % defaultColors.length];
+
+                // Merge new data with original styling
+                const mergedDataset = {
+                    ...newDataset
+                };
+
+                // Apply styling based on chart type
+                const chartType = originalConfig?.type || chart.config.type;
+
+                if (chartType === 'line' || chartType === 'area') {
+                    mergedDataset.borderColor = originalDataset.borderColor || newDataset.borderColor || color;
+                    mergedDataset.backgroundColor = originalDataset.backgroundColor || newDataset.backgroundColor || this.hexToRgba(color, 0.1);
+                    mergedDataset.tension = originalDataset.tension !== undefined ? originalDataset.tension : (newDataset.tension !== undefined ? newDataset.tension : 0.3);
+                    mergedDataset.fill = originalDataset.fill !== undefined ? originalDataset.fill : (newDataset.fill !== undefined ? newDataset.fill : true);
+                    mergedDataset.borderWidth = originalDataset.borderWidth || newDataset.borderWidth || 2;
+                    mergedDataset.pointRadius = originalDataset.pointRadius !== undefined ? originalDataset.pointRadius : (newDataset.pointRadius !== undefined ? newDataset.pointRadius : 3);
+                    mergedDataset.pointHoverRadius = originalDataset.pointHoverRadius || newDataset.pointHoverRadius || 5;
+                } else if (chartType === 'bar') {
+                    mergedDataset.backgroundColor = originalDataset.backgroundColor || newDataset.backgroundColor || defaultColors;
+                    mergedDataset.borderRadius = originalDataset.borderRadius !== undefined ? originalDataset.borderRadius : (newDataset.borderRadius !== undefined ? newDataset.borderRadius : 4);
+                    mergedDataset.borderWidth = originalDataset.borderWidth || newDataset.borderWidth || 0;
+                } else if (chartType === 'pie' || chartType === 'doughnut') {
+                    mergedDataset.backgroundColor = originalDataset.backgroundColor || newDataset.backgroundColor || defaultColors;
+                    mergedDataset.borderWidth = originalDataset.borderWidth !== undefined ? originalDataset.borderWidth : (newDataset.borderWidth !== undefined ? newDataset.borderWidth : 1);
+                    mergedDataset.borderColor = originalDataset.borderColor || newDataset.borderColor || '#fff';
+                }
+
+                return mergedDataset;
+            });
+
+            // Use 'none' animation mode for smoother refresh
             chart.update('none');
         },
 
         /**
          * Update a table component with new data
          *
-         * @param {jQuery} $wrapper - Table wrapper element
-         * @param {Object} data     - Table data with rows
+         * Rebuilds table rows based on stored column configuration.
+         *
+         * @param {jQuery} $wrapper    - Table wrapper element
+         * @param {string} componentId - Component identifier
+         * @param {Object} data        - Table data with rows
          * @returns {void}
          */
-        updateTable: function ($wrapper, data) {
-            if (!data.rows) {
+        updateTable: function ($wrapper, componentId, data) {
+            if (!data.rows || !Array.isArray(data.rows)) {
                 return;
             }
 
-            const $tbody = $wrapper.find('.reports-table tbody');
+            const $table = $wrapper.find('.reports-table');
+            const $tbody = $table.find('tbody');
+            const config = this.tableConfigs[componentId] || {};
+            const columns = config.columns || [];
+            const rowActions = config.rowActions || [];
+
+            // Clear existing rows
             $tbody.empty();
 
-            // TODO: Properly rebuild table rows with column config
+            // Handle empty state
+            if (data.rows.length === 0) {
+                const colSpan = columns.length + (rowActions.length > 0 ? 1 : 0);
+                const emptyMessage = config.emptyMessage || this.i18n('noData');
+                $tbody.append(
+                    '<tr class="reports-table-empty-row"><td colspan="' + colSpan + '">' +
+                    this.escapeHtml(emptyMessage) +
+                    '</td></tr>'
+                );
+                return;
+            }
+
+            // Build rows
+            data.rows.forEach((row) => {
+                const $tr = $('<tr>');
+
+                // If we have column config, use it for ordering and formatting
+                if (columns.length > 0) {
+                    columns.forEach((col) => {
+                        const columnKey = col.key || col;
+                        let cellValue = row[columnKey] !== undefined ? row[columnKey] : '';
+
+                        // Apply format if specified
+                        if (col.format) {
+                            cellValue = this.formatCellValue(cellValue, col.format);
+                        }
+
+                        const $td = $('<td>')
+                            .attr('data-column', columnKey)
+                            .html(cellValue);
+                        $tr.append($td);
+                    });
+                } else {
+                    // No column config - output all row values in order
+                    Object.keys(row).forEach((key) => {
+                        const $td = $('<td>')
+                            .attr('data-column', key)
+                            .html(row[key] !== undefined ? row[key] : '');
+                        $tr.append($td);
+                    });
+                }
+
+                // Add row actions if configured
+                if (rowActions.length > 0) {
+                    const $actionsTd = $('<td>').addClass('reports-table-actions');
+                    const $actionsWrap = $('<div>').addClass('reports-row-actions-wrap');
+
+                    rowActions.forEach((action, actionIndex) => {
+                        if (actionIndex > 0) {
+                            $actionsWrap.append(' <span class="sep">|</span> ');
+                        }
+
+                        let url = action.url || '#';
+                        // Replace placeholders in URL
+                        Object.keys(row).forEach((key) => {
+                            if (typeof row[key] === 'string' || typeof row[key] === 'number') {
+                                url = url.replace('{' + key + '}', encodeURIComponent(row[key]));
+                            }
+                        });
+
+                        const $link = $('<a>')
+                            .attr('href', url)
+                            .addClass('reports-row-action reports-row-action-' + action.key)
+                            .text(action.label || action.key);
+
+                        if (action.class) {
+                            $link.addClass(action.class);
+                        }
+                        if (action.confirm) {
+                            $link.attr('onclick', 'return confirm(\'' + this.escapeJs(action.confirm) + '\')');
+                        }
+                        if (action.target) {
+                            $link.attr('target', action.target);
+                        }
+
+                        $actionsWrap.append($link);
+                    });
+
+                    $actionsTd.append($actionsWrap);
+                    $tr.append($actionsTd);
+                }
+
+                $tbody.append($tr);
+            });
+
+            // Re-apply pagination if enabled
+            const $container = $wrapper.find('.reports-table-container');
+            if ($container.data('paginated')) {
+                $container.data('current-page', 1);
+                this.applyTablePagination($container);
+            }
+        },
+
+        /**
+         * Format a cell value based on format type
+         *
+         * @param {*}      value  - The value to format
+         * @param {string} format - Format type
+         * @returns {string}
+         */
+        formatCellValue: function (value, format) {
+            switch (format) {
+                case 'number':
+                    return this.formatNumber(value);
+                case 'currency':
+                    return this.formatCurrency(value);
+                case 'percentage':
+                    return parseFloat(value).toFixed(1) + '%';
+                case 'date':
+                    return this.formatDate(value);
+                case 'datetime':
+                    return this.formatDateTime(value);
+                default:
+                    return value;
+            }
+        },
+
+        /**
+         * Format a number with locale-specific separators
+         *
+         * @param {number|string} value - Value to format
+         * @returns {string}
+         */
+        formatNumber: function (value) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return num.toLocaleString();
+        },
+
+        /**
+         * Format a currency value (basic implementation)
+         *
+         * @param {number|string} value - Value to format (in cents or dollars)
+         * @returns {string}
+         */
+        formatCurrency: function (value) {
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            // Assuming value is in major currency units
+            return '$' + num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        },
+
+        /**
+         * Format a date value
+         *
+         * @param {string} value - Date string
+         * @returns {string}
+         */
+        formatDate: function (value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (isNaN(date.getTime())) return value;
+            return date.toLocaleDateString();
+        },
+
+        /**
+         * Format a datetime value
+         *
+         * @param {string} value - Datetime string
+         * @returns {string}
+         */
+        formatDateTime: function (value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (isNaN(date.getTime())) return value;
+            return date.toLocaleString();
+        },
+
+        /**
+         * Escape HTML entities
+         *
+         * @param {string} str - String to escape
+         * @returns {string}
+         */
+        escapeHtml: function (str) {
+            if (typeof str !== 'string') return str;
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        },
+
+        /**
+         * Escape string for use in JavaScript
+         *
+         * @param {string} str - String to escape
+         * @returns {string}
+         */
+        escapeJs: function (str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
         },
 
         /* ========================================================================
@@ -591,6 +849,8 @@
                 const chartConfig = $canvas.data('chart-config');
 
                 if (chartConfig && chartId) {
+                    // Store the original config for refresh preservation
+                    this.chartConfigs[chartId] = JSON.parse(JSON.stringify(chartConfig));
                     this.createChart(element, chartId, chartConfig);
                 }
             });
@@ -622,17 +882,20 @@
                     if (config.type === 'line') {
                         dataset.borderColor = dataset.borderColor || color;
                         dataset.backgroundColor = dataset.backgroundColor || this.hexToRgba(color, 0.1);
-                        dataset.tension = dataset.tension || 0.3;
+                        dataset.tension = dataset.tension !== undefined ? dataset.tension : 0.3;
                         dataset.fill = dataset.fill !== false;
                     } else if (config.type === 'bar') {
                         dataset.backgroundColor = dataset.backgroundColor || defaultColors;
-                        dataset.borderRadius = dataset.borderRadius || 4;
+                        dataset.borderRadius = dataset.borderRadius !== undefined ? dataset.borderRadius : 4;
                     } else if (config.type === 'pie' || config.type === 'doughnut') {
                         dataset.backgroundColor = dataset.backgroundColor || defaultColors;
                     }
 
                     return dataset;
                 });
+
+                // Update the stored config with the processed datasets
+                this.chartConfigs[chartId].data.datasets = JSON.parse(JSON.stringify(config.data.datasets));
             }
 
             const options = $.extend(true, {
@@ -684,12 +947,91 @@
          * @returns {void}
          */
         initTables: function () {
+            $('.reports-table-wrapper').each((index, element) => {
+                const $wrapper = $(element);
+                const componentId = $wrapper.data('component-id');
+
+                if (componentId) {
+                    // Try to get config from data attribute first (PHP-provided)
+                    const dataConfig = $wrapper.data('table-config');
+                    if (dataConfig) {
+                        this.tableConfigs[componentId] = dataConfig;
+                    } else {
+                        // Fall back to extracting from DOM
+                        this.extractTableConfig($wrapper, componentId);
+                    }
+                }
+            });
+
             $('.reports-table-container[data-paginated="true"]').each((index, element) => {
                 const $container = $(element);
 
                 $container.data('current-page', 1);
                 this.applyTablePagination($container);
             });
+        },
+
+        /**
+         * Extract table configuration from DOM for refresh (fallback)
+         *
+         * @param {jQuery} $wrapper    - Table wrapper element
+         * @param {string} componentId - Component identifier
+         * @returns {void}
+         */
+        extractTableConfig: function ($wrapper, componentId) {
+            const $table = $wrapper.find('.reports-table');
+            const $container = $wrapper.find('.reports-table-container');
+            const columns = [];
+            const rowActions = [];
+
+            // Extract column info from headers
+            $table.find('thead th').each(function () {
+                const $th = $(this);
+                const columnKey = $th.data('column');
+
+                // Skip the actions column
+                if ($th.hasClass('reports-table-actions-col')) {
+                    return;
+                }
+
+                if (columnKey) {
+                    columns.push({
+                        key: columnKey,
+                        label: $th.text().trim(),
+                        sortable: $th.hasClass('sortable'),
+                        format: '' // Can't determine format from DOM
+                    });
+                }
+            });
+
+            // Extract row actions from first row (if exists)
+            const $firstRowActions = $table.find('tbody tr:first .reports-row-actions-wrap a');
+            $firstRowActions.each(function () {
+                const $link = $(this);
+                const classes = $link.attr('class') || '';
+                const keyMatch = classes.match(/reports-row-action-(\S+)/);
+                const actionKey = keyMatch ? keyMatch[1] : '';
+
+                if (actionKey && actionKey !== 'row') {
+                    rowActions.push({
+                        key: actionKey,
+                        label: $link.text().trim(),
+                        url: $link.attr('href') || '#',
+                        class: $link.attr('class')?.replace(/reports-row-action[^\s]*/g, '').trim() || '',
+                        confirm: $link.attr('onclick')?.match(/confirm\('([^']+)'\)/)?.[1] || '',
+                        target: $link.attr('target') || ''
+                    });
+                }
+            });
+
+            // Store configuration
+            this.tableConfigs[componentId] = {
+                columns: columns,
+                rowActions: rowActions,
+                emptyMessage: $wrapper.find('.reports-table-empty p').text() || this.i18n('noData'),
+                paginated: $container.data('paginated') === true || $container.data('paginated') === 'true',
+                perPage: parseInt($container.data('per-page'), 10) || 10
+            };
         },
 
         /**
