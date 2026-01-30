@@ -102,17 +102,22 @@ class Reports {
             'show_title'       => true,
             'show_tabs'        => true,
             'show_date_picker' => true,
-        // Branded header options
+            'body_class'       => '',
+
+            // Branded header options
             'logo'             => '',
             'header_title'     => '',
             'header_class'     => '',
-        // Date range options
-            'date_presets'     => [], // Populated dynamically via Dates::get_range_options()
+
+            // Date range options
+            'date_presets'     => [],
             'default_preset'   => 'this_month',
-        // Refresh options
+
+            // Refresh options
             'auto_refresh'     => 0,     // Seconds between auto-refresh. 0 = disabled
             'show_refresh'     => true,  // Show manual refresh button
-        // Help screen options
+
+            // Help screen options
             'help_tabs'        => [],
             'help_sidebar'     => '',
     ];
