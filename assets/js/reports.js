@@ -1099,19 +1099,100 @@
             const $table = $container.find('.reports-table');
             const $rows = $table.find('tbody tr');
             const currentPage = $container.data('current-page') || 1;
-            const perPage = $container.data('per-page') || 10;
+            const perPage = parseInt($container.data('per-page'), 10) || 10;
             const totalRows = $rows.length;
+            const totalPages = Math.ceil(totalRows / perPage);
             const start = (currentPage - 1) * perPage;
             const end = start + perPage;
             const showing = Math.min(end, totalRows);
 
+            // Hide all rows, then show only the current page
             $rows.hide().slice(start, end).show();
 
-            const $pagination = $container.find('.reports-table-pagination');
+            // Get or create pagination container
+            let $pagination = $container.find('.reports-table-pagination');
+            if (!$pagination.length && totalPages > 1) {
+                $pagination = $('<div class="reports-table-pagination"><span class="reports-table-info"></span><div class="reports-table-pages"></div></div>');
+                $container.append($pagination);
+            }
 
+            if (!$pagination.length) {
+                return;
+            }
+
+            // Update info text
             $pagination.find('.reports-table-info').text(
                 this.i18n('showing', start + 1, showing, totalRows)
             );
+
+            // Build page buttons
+            const $pages = $pagination.find('.reports-table-pages');
+            $pages.empty();
+
+            // Only show pagination controls if there's more than one page
+            if (totalPages <= 1) {
+                $pagination.hide();
+                return;
+            }
+
+            $pagination.show();
+
+            // Previous button
+            const $prevBtn = $('<button type="button" class="button">&laquo; Prev</button>')
+                .data('page', currentPage - 1)
+                .prop('disabled', currentPage <= 1);
+            $pages.append($prevBtn);
+
+            // Page number buttons (with ellipsis for many pages)
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            // Adjust start if we're near the end
+            if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            // First page + ellipsis
+            if (startPage > 1) {
+                $pages.append(
+                    $('<button type="button" class="button">1</button>').data('page', 1)
+                );
+                if (startPage > 2) {
+                    $pages.append('<span class="ellipsis">…</span>');
+                }
+            }
+
+            // Page numbers
+            for (let i = startPage; i <= endPage; i++) {
+                const $pageBtn = $('<button type="button" class="button"></button>')
+                    .text(i)
+                    .data('page', i);
+
+                if (i === currentPage) {
+                    $pageBtn.addClass('button-primary').prop('disabled', true);
+                }
+
+                $pages.append($pageBtn);
+            }
+
+            // Ellipsis + last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    $pages.append('<span class="ellipsis">…</span>');
+                }
+                $pages.append(
+                    $('<button type="button" class="button"></button>')
+                        .text(totalPages)
+                        .data('page', totalPages)
+                );
+            }
+
+            // Next button
+            const $nextBtn = $('<button type="button" class="button">Next &raquo;</button>')
+                .data('page', currentPage + 1)
+                .prop('disabled', currentPage >= totalPages);
+            $pages.append($nextBtn);
         },
 
         /* ========================================================================
