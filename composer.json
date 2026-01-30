@@ -1,8 +1,8 @@
 {
-  "name": "arraypress/wp-register-importers",
+  "name": "arraypress/wp-register-reports",
   "version": "1.0.0",
-  "description": "WordPress library for registering import and sync operations with batch processing, field mapping, and progress tracking.",
-  "homepage": "https://github.com/arraypress/wp-register-importers/",
+  "description": "WordPress library for registering report pages with charts, tiles, tables, and CSV export functionality.",
+  "homepage": "https://github.com/arraypress/wp-register-reports/",
   "type": "library",
   "license": "GPL-2.0-or-later",
   "authors": [
@@ -13,11 +13,13 @@
   ],
   "require": {
     "php": ">=8.1",
-    "arraypress/wp-composer-assets": "dev-main"
+    "arraypress/wp-composer-assets": "dev-main",
+    "arraypress/wp-date-utils": "dev-main",
+    "arraypress/wp-currencies": "dev-main"
   },
   "autoload": {
     "psr-4": {
-      "ArrayPress\\RegisterImporters\\": "src/"
+      "ArrayPress\\RegisterReports\\": "src/"
     },
     "files": [
       "src/Utilities/Functions.php"
@@ -31,18 +33,19 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "support": {
-    "issues": "https://github.com/arraypress/wp-register-importers/issues",
-    "source": "https://github.com/arraypress/wp-register-importers"
+    "issues": "https://github.com/arraypress/wp-register-reports/issues",
+    "source": "https://github.com/arraypress/wp-register-reports"
   },
   "keywords": [
     "wordpress",
-    "importers",
-    "sync",
-    "csv",
-    "batch-processing",
-    "data-import",
-    "api-sync",
+    "reports",
+    "analytics",
+    "charts",
+    "graphs",
+    "tiles",
+    "statistics",
+    "csv-export",
     "admin",
-    "migration"
+    "dashboard"
   ]
 }
