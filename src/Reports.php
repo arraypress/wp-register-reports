@@ -104,20 +104,20 @@ class Reports {
             'show_date_picker' => true,
             'body_class'       => '',
 
-            // Branded header options
+        // Branded header options
             'logo'             => '',
             'header_title'     => '',
             'header_class'     => '',
 
-            // Date range options
+        // Date range options
             'date_presets'     => [],
             'default_preset'   => 'this_month',
 
-            // Refresh options
+        // Refresh options
             'auto_refresh'     => 0,     // Seconds between auto-refresh. 0 = disabled
             'show_refresh'     => true,  // Show manual refresh button
 
-            // Help screen options
+        // Help screen options
             'help_tabs'        => [],
             'help_sidebar'     => '',
     ];
@@ -312,10 +312,11 @@ class Reports {
         // Add current filter values to date_range for callbacks
         $this->date_range['filters'] = $this->get_current_filters( $current_tab );
 
+        // Render header OUTSIDE .wrap (matches RegisterSettingFields pattern)
+        $this->render_header( $current_tab );
+
         ?>
         <div class="wrap reports-wrap" data-report-id="<?php echo esc_attr( $this->id ); ?>">
-
-            <?php $this->render_header( $current_tab ); ?>
 
             <div class="reports-notices">
                 <?php settings_errors( $this->id . '_notices' ); ?>
@@ -355,42 +356,60 @@ class Reports {
     /**
      * Render the modern header with optional logo, tabs, and date picker.
      *
+     * Rendered outside .wrap to match RegisterSettingFields/EDD pattern.
+     *
      * @param string $current_tab Current active tab.
      *
      * @return void
      */
     protected function render_header( string $current_tab ): void {
         $logo_url     = $this->config['logo'] ?? '';
-        $header_title = ! empty( $this->config['header_title'] ) ? $this->config['header_title'] : $this->config['page_title'];
+        $header_title = ! empty( $this->config['header_title'] )
+                ? $this->config['header_title']
+                : $this->config['page_title'];
         $show_title   = $this->config['show_title'] ?? true;
         $show_refresh = $this->config['show_refresh'] ?? true;
         $auto_refresh = (int) ( $this->config['auto_refresh'] ?? 0 );
         $tab_filters  = $this->tabs[ $current_tab ]['filters'] ?? [];
 
+        $has_title = $show_title && ! empty( $header_title );
+        $has_tabs  = $this->config['show_tabs'] && ! empty( $this->tabs );
+
+        // Don't render header if nothing to show
+        if ( ! $logo_url && ! $has_title && ! $has_tabs && ! $this->config['show_date_picker'] ) {
+            echo '<hr class="wp-header-end">';
+
+            return;
+        }
+
         ?>
         <div class="reports-header">
-            <div class="reports-header-top">
-                <div class="reports-header-branding">
+            <div class="reports-header__inner">
+                <div class="reports-header__branding">
                     <?php if ( $logo_url ) : ?>
-                        <img src="<?php echo esc_url( $logo_url ); ?>" alt="" class="reports-header-logo">
+                        <img src="<?php echo esc_url( $logo_url ); ?>" alt="" class="reports-header__logo">
+                        <?php if ( $has_title ) : ?>
+                            <span class="reports-header__separator">/</span>
+                        <?php endif; ?>
                     <?php endif; ?>
-                    <?php if ( $show_title ) : ?>
-                        <h1 class="reports-header-title"><?php echo esc_html( $header_title ); ?></h1>
+                    <?php if ( $has_title ) : ?>
+                        <h1 class="reports-header__title"><?php echo esc_html( $header_title ); ?></h1>
                     <?php endif; ?>
                 </div>
 
-                <div class="reports-header-actions">
+                <div class="reports-header__actions">
                     <?php if ( $show_refresh || $auto_refresh > 0 ) : ?>
                         <div class="reports-refresh-controls"
                              data-auto-refresh="<?php echo esc_attr( $auto_refresh ); ?>"
                              data-report-id="<?php echo esc_attr( $this->id ); ?>">
                             <?php if ( $auto_refresh > 0 ) : ?>
                                 <span class="reports-last-updated">
-									<span class="reports-last-updated-text"><?php esc_html_e( 'Updated just now', 'arraypress' ); ?></span>
-								</span>
+                                <span class="reports-last-updated-text"><?php esc_html_e( 'Updated just now', 'arraypress' ); ?></span>
+                            </span>
                             <?php endif; ?>
                             <?php if ( $show_refresh ) : ?>
-                                <button type="button" class="reports-refresh-button" title="<?php esc_attr_e( 'Refresh', 'arraypress' ); ?>">
+                                <button type="button" class="reports-refresh-button"
+                                        title="<?php esc_attr_e( 'Refresh', 'arraypress' ); ?>">
                                     <span class="dashicons dashicons-update"></span>
                                 </button>
                             <?php endif; ?>
@@ -403,8 +422,21 @@ class Reports {
                 </div>
             </div>
 
-            <?php if ( $this->config['show_tabs'] && ! empty( $this->tabs ) ) : ?>
-                <div class="reports-header-tabs">
+            <?php if ( $has_tabs ) : ?>
+                <div class="reports-header__tabs">
+                    <button type="button" class="reports-tabs-toggle">
+                    <span class="reports-tabs-current">
+                        <?php
+                        $current_label = $this->tabs[ $current_tab ]['label'] ?? '';
+                        $current_icon  = $this->tabs[ $current_tab ]['icon'] ?? '';
+                        if ( $current_icon ) {
+                            echo '<span class="dashicons ' . esc_attr( $current_icon ) . '"></span> ';
+                        }
+                        echo esc_html( $current_label );
+                        ?>
+                    </span>
+                        <span class="dashicons dashicons-arrow-down-alt2"></span>
+                    </button>
                     <?php $this->render_tabs( $current_tab ); ?>
                 </div>
             <?php endif; ?>
@@ -413,6 +445,7 @@ class Reports {
                 <?php $this->render_filter_bar( $tab_filters ); ?>
             <?php endif; ?>
         </div>
+        <hr class="wp-header-end">
         <?php
     }
 

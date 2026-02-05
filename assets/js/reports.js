@@ -73,10 +73,96 @@
          * @returns {void}
          */
         init: function () {
+            this.repositionScreenMetaLinks();
+            this.repositionNotices();
+            this.initMobileTabs();
             this.bindEvents();
             this.initCharts();
             this.initTables();
             this.initRefresh();
+        },
+
+        /* ========================================================================
+         * TWEAKS
+         * ======================================================================== */
+
+        /**
+         * Move screen-meta-links inside our header for proper layout
+         *
+         * @returns {void}
+         */
+        repositionScreenMetaLinks: function () {
+            const $header = $('.reports-header');
+            const $screenMetaLinks = $('#screen-meta-links');
+
+            if ($header.length && $screenMetaLinks.length) {
+                $screenMetaLinks.css({
+                    'float': 'none',
+                    'position': 'absolute',
+                    'right': '20px',
+                    'top': '-26px',
+                    'margin': '0',
+                    'height': '80px',
+                    'display': 'flex',
+                    'align-items': 'center'
+                });
+                $header.css('position', 'relative');
+                $header.prepend($screenMetaLinks);
+            }
+        },
+
+        /**
+         * Move any stray notices into our notices container
+         *
+         * @returns {void}
+         */
+        repositionNotices: function () {
+            const $wrap = $('.reports-wrap');
+            const $noticesContainer = $wrap.find('.reports-notices');
+
+            if (!$noticesContainer.length) return;
+
+            // Move any notices that appear before or after the header into our container
+            $wrap.find('.notice, .updated, .error').not('.reports-notices .notice, .reports-notices .updated, .reports-notices .error').each(function () {
+                $(this).appendTo($noticesContainer);
+            });
+
+            // Also catch notices WordPress injects at wrap level
+            $wrap.siblings('.notice, .updated, .error').each(function () {
+                $(this).appendTo($noticesContainer);
+            });
+        },
+
+        /**
+         * Initialize mobile tabs toggle functionality
+         *
+         * @returns {void}
+         */
+        initMobileTabs: function () {
+            // Toggle dropdown
+            $(document).on('click', '.reports-tabs-toggle', function (e) {
+                e.preventDefault();
+                $(this).closest('.reports-header__tabs').toggleClass('is-open');
+            });
+
+            // Close when clicking outside
+            $(document).on('click', function (e) {
+                if (!$(e.target).closest('.reports-header__tabs').length) {
+                    $('.reports-header__tabs').removeClass('is-open');
+                }
+            });
+
+            // Close when a tab is clicked
+            $(document).on('click', '.reports-header__tabs .reports-tab', function () {
+                $('.reports-header__tabs').removeClass('is-open');
+            });
+
+            // Close on escape key
+            $(document).on('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    $('.reports-header__tabs').removeClass('is-open');
+                }
+            });
         },
 
         /**
