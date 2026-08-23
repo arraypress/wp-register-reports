@@ -337,7 +337,7 @@ class RestApi {
 		$report    = Registry::instance()->get( $report_id );
 
 		if ( ! $report ) {
-			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'reports' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		$date_range     = self::get_date_range_from_request( $request, $report );
@@ -350,7 +350,7 @@ class RestApi {
 		}
 
 		if ( ! isset( $all_components[ $tab ] ) ) {
-			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'reports' ), [ 'status' => 404 ] );
+			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		// Collect filter values from request

@@ -40,7 +40,7 @@ trait ConfigParser {
 			// Create a default tab if components exist but no tabs defined
 			if ( ! empty( $this->config['components'] ) ) {
 				$this->tabs['default'] = [
-					'label' => __( 'Overview', 'reports' ),
+					'label' => __( 'Overview', 'arraypress' ),
 					'icon'  => 'dashicons-chart-bar',
 				];
 			}
@@ -165,7 +165,7 @@ trait ConfigParser {
 					'searchable'    => false,
 					'paginated'     => true,
 					'per_page'      => 10,
-					'empty_message' => __( 'No data available.', 'reports' ),
+					'empty_message' => __( 'No data available.', 'arraypress' ),
 					'row_actions'   => [],
 				] );
 				break;
@@ -230,10 +230,14 @@ trait ConfigParser {
 			'tab'           => $first_tab,
 			'filename'      => $key,
 			'data_callback' => null,
+			// Required by RestApi::start_export(), which rejects an export
+			// without one — listing it here so the shape an export must have
+			// is visible in one place rather than only in the error.
+			'total_callback' => null,
 			'columns'       => [],
 			'filters'       => [],
 			'icon'          => 'dashicons-download',
-			'button_text'   => __( 'Export CSV', 'reports' ),
+			'button_text'   => __( 'Export CSV', 'arraypress' ),
 		];
 
 		return wp_parse_args( $export, $defaults );

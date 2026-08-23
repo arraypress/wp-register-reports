@@ -95,7 +95,7 @@ trait DateRangeHandler {
         $current_range = $this->date_range;
         $preset        = $current_range['preset'] ?? 'this_month';
 
-        $preset_label = $presets[ $preset ] ?? __( 'Custom Range', 'reports' );
+        $preset_label = $presets[ $preset ] ?? __( 'Custom Range', 'arraypress' );
 
         if ( $preset === 'custom' ) {
             $preset_label = Dates::format_range( $current_range['start'], $current_range['end'] );
@@ -126,7 +126,7 @@ trait DateRangeHandler {
                 <div class="reports-date-picker-custom" style="display: none;">
                     <div class="reports-date-picker-custom-row">
                         <label>
-                            <?php esc_html_e( 'Start Date', 'reports' ); ?>
+                            <?php esc_html_e( 'Start Date', 'arraypress' ); ?>
                             <input type="date"
                                     class="reports-date-start"
                                     value="<?php echo esc_attr( $current_range['start_local'] ?? '' ); ?>"/>
@@ -134,7 +134,7 @@ trait DateRangeHandler {
                     </div>
                     <div class="reports-date-picker-custom-row">
                         <label>
-                            <?php esc_html_e( 'End Date', 'reports' ); ?>
+                            <?php esc_html_e( 'End Date', 'arraypress' ); ?>
                             <input type="date"
                                     class="reports-date-end"
                                     value="<?php echo esc_attr( $current_range['end_local'] ?? '' ); ?>"/>
@@ -142,10 +142,10 @@ trait DateRangeHandler {
                     </div>
                     <div class="reports-date-picker-custom-actions">
                         <button type="button" class="button reports-date-picker-cancel">
-                            <?php esc_html_e( 'Cancel', 'reports' ); ?>
+                            <?php esc_html_e( 'Cancel', 'arraypress' ); ?>
                         </button>
                         <button type="button" class="button button-primary reports-date-picker-apply">
-                            <?php esc_html_e( 'Apply', 'reports' ); ?>
+                            <?php esc_html_e( 'Apply', 'arraypress' ); ?>
                         </button>
                     </div>
                 </div>

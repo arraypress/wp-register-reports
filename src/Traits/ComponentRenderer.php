@@ -414,7 +414,7 @@ trait ComponentRenderer {
 
         $columns       = $component['columns'] ?? [];
         $rows          = $data['rows'] ?? $data ?? [];
-        $empty_message = $component['empty_message'] ?? __( 'No data available.', 'reports' );
+        $empty_message = $component['empty_message'] ?? __( 'No data available.', 'arraypress' );
         $row_actions   = $component['row_actions'] ?? [];
         $is_paginated  = ! empty( $component['paginated'] );
         $per_page      = $component['per_page'] ?? 10;
@@ -499,7 +499,7 @@ trait ComponentRenderer {
                                 </th>
                             <?php endforeach; ?>
                             <?php if ( ! empty( $row_actions ) ) : ?>
-                                <th class="reports-table-actions-col"><?php esc_html_e( 'Actions', 'reports' ); ?></th>
+                                <th class="reports-table-actions-col"><?php esc_html_e( 'Actions', 'arraypress' ); ?></th>
                             <?php endif; ?>
                         </tr>
                         </thead>
