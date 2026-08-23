@@ -189,4 +189,39 @@ final class NoSharedRuntimeKeysTest extends TestCase {
 		$this->assertSame( [], $found, 'The export directory must be derived from Runtime.' );
 	}
 
+	/**
+	 * The REST namespace accessor must delegate, not return a literal.
+	 *
+	 * Routes are registered through this accessor rather than with an inline
+	 * string, so a hardcoded namespace hides inside the method body where the
+	 * register_rest_route() check above cannot see it. That is not
+	 * hypothetical: it is exactly what this test was written after failing to
+	 * catch.
+	 */
+	public function test_rest_namespace_accessor_delegates_to_runtime(): void {
+		$found = false;
+
+		foreach ( $this->sources() as $path => $code ) {
+			if ( ! preg_match( '/function rest_namespace\\(\\)[^{]*\\{(.*?)\\n\\t\\}/s', $code, $m ) ) {
+				continue;
+			}
+
+			$found = true;
+
+			$this->assertStringContainsString(
+				'Runtime::rest_namespace()',
+				$m[1],
+				sprintf(
+					'%s::rest_namespace() must return Runtime::rest_namespace(); a literal here '
+					. 'is shared by every plugin bundling this library.',
+					$path
+				)
+			);
+		}
+
+		if ( ! $found ) {
+			$this->addToAssertionCount( 1 );
+		}
+	}
+
 }
