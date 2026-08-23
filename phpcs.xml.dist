@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<ruleset name="Wp Register Reports">
+    <description>Defect-hunting sniffs. Preferences live in phpcs-format.xml.dist.</description>
+
+    <file>src</file>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <config name="testVersion" value="8.3-"/>
+    <config name="installed_paths" value="vendor/wp-coding-standards/wpcs,vendor/phpcompatibility/php-compatibility,vendor/phpcompatibility/phpcompatibility-paragonie,vendor/phpcompatibility/phpcompatibility-wp,vendor/phpcsstandards/phpcsutils,vendor/phpcsstandards/phpcsextra"/>
+
+    <rule ref="PHPCompatibilityWP"/>
+
+    <rule ref="WordPress.Security"/>
+    <rule ref="WordPress.DB"/>
+    <rule ref="WordPress.WP.I18n"/>
+
+
+    <rule ref="WordPress.Security.NonceVerification">
+        <!--
+            All three read query args that decide what the report screen
+            draws: which tab is open, which date preset or explicit start/end
+            is selected, and the value of each registered filter. Nothing is
+            written and nothing changes state — a GET navigation to a report
+            view carries no nonce to check, exactly as core's own list tables
+            read orderby, paged and s without one. Every value is sanitized
+            and unslashed at the point of read.
+        -->
+        <exclude-pattern>src/Reports.php</exclude-pattern>
+        <exclude-pattern>src/Traits/DateRangeHandler.php</exclude-pattern>
+        <exclude-pattern>src/Traits/TabManager.php</exclude-pattern>
+    </rule>
+
+</ruleset>

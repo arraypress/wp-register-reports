@@ -12,6 +12,9 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\RegisterReports\RestApi;
+use ArrayPress\RegisterReports\Utils\Runtime;
+
 /**
  * Trait AssetManager
  *
@@ -51,23 +54,23 @@ trait AssetManager {
 	 */
 	protected function enqueue_core_assets(): void {
 		wp_enqueue_composer_style(
-			'arraypress-reports',
+			Runtime::handle(),
 			__FILE__,
 			'css/reports.css'
 		);
 
 		wp_enqueue_composer_script(
-			'arraypress-chartjs',
+			Runtime::handle( 'chartjs' ),
 			__FILE__,
 			'js/chart.js',
 			[]
 		);
 
 		wp_enqueue_composer_script(
-			'arraypress-reports',
+			Runtime::handle(),
 			__FILE__,
 			'js/reports.js',
-			[ 'jquery', 'arraypress-chartjs' ]
+			[ 'jquery', Runtime::handle( 'chartjs' ) ]
 		);
 	}
 
@@ -77,9 +80,8 @@ trait AssetManager {
 	 * @return void
 	 */
 	protected function localize_scripts(): void {
-		wp_localize_script( 'arraypress-reports', 'ReportsAdmin', [
-			'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
-			'restUrl'       => rest_url( 'reports/v1/' ),
+		$config = [
+			'restUrl'       => rest_url( RestApi::rest_namespace() . '/' ),
 			'restNonce'     => wp_create_nonce( 'wp_rest' ),
 			'reportId'      => $this->id,
 			'dateRange'     => $this->date_range,
@@ -92,6 +94,7 @@ trait AssetManager {
 				// Export
 				'exporting'      => __( 'Exporting...', 'arraypress' ),
 				'preparing'      => __( 'Preparing export...', 'arraypress' ),
+				/* translators: 1: number of rows processed so far, 2: total rows */
 				'processing'     => __( 'Processing %1$d / %2$d', 'arraypress' ),
 				'complete'       => __( 'Export complete!', 'arraypress' ),
 				'download'       => __( 'Download CSV', 'arraypress' ),
@@ -100,11 +103,15 @@ trait AssetManager {
 
 				// Refresh / Last Updated
 				'updatedJustNow' => __( 'Updated just now', 'arraypress' ),
+				/* translators: %d: number of seconds since the last refresh */
 				'updatedSeconds' => __( 'Updated %ds ago', 'arraypress' ),
+				/* translators: %d: number of minutes since the last refresh */
 				'updatedMinutes' => __( 'Updated %dm ago', 'arraypress' ),
+				/* translators: %d: number of hours since the last refresh */
 				'updatedHours'   => __( 'Updated %dh ago', 'arraypress' ),
 
 				// Table Pagination
+				/* translators: 1: first row on this page, 2: last row on this page, 3: total rows */
 				'showing'        => __( 'Showing %1$d-%2$d of %3$d', 'arraypress' ),
 			],
 			'chartDefaults' => [
@@ -119,7 +126,26 @@ trait AssetManager {
 					'#84cc16', // lime
 				],
 			],
-		] );
-	}
+		];
 
+		$handle = Runtime::handle();
+
+		// Published into a registry keyed by script handle rather than to a
+		// bare global. Two Strauss-prefixed copies of this library each load
+		// their own reports.js under their own handle, and a shared global
+		// would leave whichever localized last serving both — with one
+		// plugin's REST namespace, nonce and report id. The script resolves
+		// its own entry from the id WordPress stamps on its <script> tag.
+		wp_localize_script( $handle, Runtime::js_object( 'Admin' ), $config );
+
+		wp_add_inline_script(
+			$handle,
+			sprintf(
+				'window.ArrayPressReports=window.ArrayPressReports||{};window.ArrayPressReports[%s]=%s;',
+				wp_json_encode( $handle ),
+				wp_json_encode( $config )
+			),
+			'before'
+		);
+	}
 }

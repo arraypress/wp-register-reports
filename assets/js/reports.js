@@ -11,6 +11,22 @@
     'use strict';
 
     /**
+     * This copy's configuration.
+     *
+     * Each Strauss-prefixed copy of the library enqueues its own reports.js
+     * under its own handle, so a shared global would leave two plugins on one
+     * screen reading the same REST namespace and nonce. Resolve our own entry
+     * from the handle WordPress stamped on the script element executing now.
+     */
+    const cfg = (function () {
+        const el = document.currentScript;
+        const handle = el && el.id ? el.id.replace(/-js$/, '') : '';
+        const registry = window.ArrayPressReports || {};
+
+        return registry[handle] || window.ReportsAdmin || {};
+    })();
+
+    /**
      * Main Reports Controller
      *
      * @namespace ReportsController
@@ -196,12 +212,12 @@
         /**
          * Get localized string with optional sprintf-style replacements
          *
-         * @param {string}    key  - i18n key from ReportsAdmin.i18n
+         * @param {string}    key  - i18n key from cfg.i18n
          * @param {...*}      args - Replacement values for %s, %d, %1$s, %2$d, etc.
          * @returns {string}
          */
         i18n: function (key, ...args) {
-            let str = ReportsAdmin.i18n[key] || key;
+            let str = cfg.i18n[key] || key;
 
             if (args.length === 0) {
                 return str;
@@ -370,11 +386,11 @@
             };
 
             $.ajax({
-                url: ReportsAdmin.restUrl + 'components',
+                url: cfg.restUrl + 'components',
                 method: 'GET',
                 data: requestData,
                 beforeSend: (xhr) => {
-                    xhr.setRequestHeader('X-WP-Nonce', ReportsAdmin.restNonce);
+                    xhr.setRequestHeader('X-WP-Nonce', cfg.restNonce);
                 },
                 success: (response) => {
                     if (response.success && response.components) {
@@ -472,7 +488,7 @@
             chart.data.labels = data.labels;
 
             // Update datasets while preserving styling from original config
-            const defaultColors = ReportsAdmin.chartDefaults?.colors || [
+            const defaultColors = cfg.chartDefaults?.colors || [
                 '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
                 '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
             ];
@@ -956,7 +972,7 @@
             }
 
             const ctx = canvas.getContext('2d');
-            const defaultColors = ReportsAdmin.chartDefaults?.colors || [
+            const defaultColors = cfg.chartDefaults?.colors || [
                 '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
                 '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
             ];
@@ -1380,10 +1396,10 @@
             };
 
             $.ajax({
-                url: ReportsAdmin.restUrl + 'export/start',
+                url: cfg.restUrl + 'export/start',
                 method: 'POST',
                 beforeSend: (xhr) => {
-                    xhr.setRequestHeader('X-WP-Nonce', ReportsAdmin.restNonce);
+                    xhr.setRequestHeader('X-WP-Nonce', cfg.restNonce);
                 },
                 contentType: 'application/json',
                 data: JSON.stringify(requestData),
@@ -1425,10 +1441,10 @@
             const $progressPercent = $card.find('.reports-export-progress-percent');
 
             $.ajax({
-                url: ReportsAdmin.restUrl + 'export/batch',
+                url: cfg.restUrl + 'export/batch',
                 method: 'POST',
                 beforeSend: (xhr) => {
-                    xhr.setRequestHeader('X-WP-Nonce', ReportsAdmin.restNonce);
+                    xhr.setRequestHeader('X-WP-Nonce', cfg.restNonce);
                 },
                 contentType: 'application/json',
                 data: JSON.stringify({

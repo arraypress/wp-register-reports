@@ -55,13 +55,13 @@ trait TabManager {
 
 		// Preserve date range parameters
 		if ( ! empty( $_GET['date_preset'] ) ) {
-			$args['date_preset'] = sanitize_key( $_GET['date_preset'] );
+			$args['date_preset'] = sanitize_key( wp_unslash( $_GET['date_preset'] ) );
 		}
 		if ( ! empty( $_GET['date_start'] ) ) {
-			$args['date_start'] = sanitize_text_field( $_GET['date_start'] );
+			$args['date_start'] = sanitize_text_field( wp_unslash( $_GET['date_start'] ) );
 		}
 		if ( ! empty( $_GET['date_end'] ) ) {
-			$args['date_end'] = sanitize_text_field( $_GET['date_end'] );
+			$args['date_end'] = sanitize_text_field( wp_unslash( $_GET['date_end'] ) );
 		}
 
 		return add_query_arg( $args, admin_url( 'admin.php' ) );
@@ -126,5 +126,4 @@ trait TabManager {
 	public function get_tab( string $tab ): ?array {
 		return $this->tabs[ $tab ] ?? null;
 	}
-
 }

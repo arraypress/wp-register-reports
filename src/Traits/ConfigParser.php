@@ -267,5 +267,4 @@ trait ConfigParser {
 	protected function get_exports_for_tab( string $tab ): array {
 		return $this->exports[ $tab ] ?? [];
 	}
-
 }

@@ -30,9 +30,9 @@ trait DateRangeHandler {
      * @return array
      */
     protected function get_current_date_range(): array {
-        $preset     = isset( $_GET['date_preset'] ) ? sanitize_key( $_GET['date_preset'] ) : '';
-        $date_start = isset( $_GET['date_start'] ) ? sanitize_text_field( $_GET['date_start'] ) : '';
-        $date_end   = isset( $_GET['date_end'] ) ? sanitize_text_field( $_GET['date_end'] ) : '';
+        $preset     = isset( $_GET['date_preset'] ) ? sanitize_key( wp_unslash( $_GET['date_preset'] ) ) : '';
+        $date_start = isset( $_GET['date_start'] ) ? sanitize_text_field( wp_unslash( $_GET['date_start'] ) ) : '';
+        $date_end   = isset( $_GET['date_end'] ) ? sanitize_text_field( wp_unslash( $_GET['date_end'] ) ) : '';
 
         // Use default preset if none specified
         if ( empty( $preset ) ) {
@@ -128,16 +128,16 @@ trait DateRangeHandler {
                         <label>
                             <?php esc_html_e( 'Start Date', 'reports' ); ?>
                             <input type="date"
-                                   class="reports-date-start"
-                                   value="<?php echo esc_attr( $current_range['start_local'] ?? '' ); ?>"/>
+                                    class="reports-date-start"
+                                    value="<?php echo esc_attr( $current_range['start_local'] ?? '' ); ?>"/>
                         </label>
                     </div>
                     <div class="reports-date-picker-custom-row">
                         <label>
                             <?php esc_html_e( 'End Date', 'reports' ); ?>
                             <input type="date"
-                                   class="reports-date-end"
-                                   value="<?php echo esc_attr( $current_range['end_local'] ?? '' ); ?>"/>
+                                    class="reports-date-end"
+                                    value="<?php echo esc_attr( $current_range['end_local'] ?? '' ); ?>"/>
                         </label>
                     </div>
                     <div class="reports-date-picker-custom-actions">
@@ -198,5 +198,4 @@ trait DateRangeHandler {
 
         return '';
     }
-
 }

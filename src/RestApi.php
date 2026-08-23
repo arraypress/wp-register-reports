@@ -13,6 +13,7 @@ declare( strict_types=1 );
 namespace ArrayPress\RegisterReports;
 
 use ArrayPress\DateUtils\Dates;
+use ArrayPress\RegisterReports\Utils\Runtime;
 use Exception;
 use WP_Error;
 use WP_REST_Request;
@@ -27,9 +28,30 @@ use WP_REST_Server;
 class RestApi {
 
 	/**
-	 * REST namespace.
+	 * Get the REST namespace for this build.
+	 *
+	 * Derived from the class namespace so two Strauss-prefixed copies of this
+	 * library never register the same routes. See {@see Runtime}.
+	 *
+	 * @return string
 	 */
-	const NAMESPACE = 'reports/v1';
+	public static function rest_namespace(): string {
+		return Runtime::rest_namespace();
+	}
+
+	/**
+	 * Get the transient key holding an export session.
+	 *
+	 * Prefixed per build so one plugin's copy cannot read, serve or delete
+	 * another plugin's export session.
+	 *
+	 * @param string $export_token Export token.
+	 *
+	 * @return string
+	 */
+	private static function export_key( string $export_token ): string {
+		return Runtime::key( 'export' ) . '_' . $export_token;
+	}
 
 	/**
 	 * Whether the API has been registered.
@@ -50,7 +72,6 @@ class RestApi {
 		}
 
 		add_action( 'rest_api_init', [ __CLASS__, 'register_routes' ] );
-		add_action( 'wp_ajax_reports_download_export', [ __CLASS__, 'handle_download_export' ] );
 
 		self::$registered = true;
 	}
@@ -60,7 +81,7 @@ class RestApi {
 	 */
 	public static function register_routes(): void {
 		// Get single component data
-		register_rest_route( self::NAMESPACE, '/component', [
+		register_rest_route( self::rest_namespace(), '/component', [
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => [ __CLASS__, 'get_component_data' ],
 			'permission_callback' => [ __CLASS__, 'check_permissions' ],
@@ -68,7 +89,7 @@ class RestApi {
 		] );
 
 		// Get all components for a tab (for refresh)
-		register_rest_route( self::NAMESPACE, '/components', [
+		register_rest_route( self::rest_namespace(), '/components', [
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => [ __CLASS__, 'get_all_components_data' ],
 			'permission_callback' => [ __CLASS__, 'check_permissions' ],
@@ -76,7 +97,7 @@ class RestApi {
 		] );
 
 		// Start export
-		register_rest_route( self::NAMESPACE, '/export/start', [
+		register_rest_route( self::rest_namespace(), '/export/start', [
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => [ __CLASS__, 'start_export' ],
 			'permission_callback' => [ __CLASS__, 'check_permissions' ],
@@ -84,11 +105,29 @@ class RestApi {
 		] );
 
 		// Process export batch
-		register_rest_route( self::NAMESPACE, '/export/batch', [
+		register_rest_route( self::rest_namespace(), '/export/batch', [
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => [ __CLASS__, 'process_export_batch' ],
 			'permission_callback' => [ __CLASS__, 'check_batch_permissions' ],
 			'args'                => self::get_export_batch_args(),
+		] );
+
+		// Download the finished file. Browser-navigated, so it authenticates
+		// with the standard REST cookie nonce (_wpnonce) rather than a
+		// bespoke one, and reuses the batch permission check — which resolves
+		// the report from the export session and tests its capability.
+		register_rest_route( self::rest_namespace(), '/export/download', [
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => [ __CLASS__, 'handle_download_export' ],
+			'permission_callback' => [ __CLASS__, 'check_batch_permissions' ],
+			'args'                => [
+				'export_token' => [
+					'description'       => __( 'Export session token.', 'arraypress' ),
+					'type'              => 'string',
+					'required'          => true,
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+			],
 		] );
 	}
 
@@ -97,11 +136,28 @@ class RestApi {
 	 */
 	private static function get_component_args(): array {
 		return [
-			'report_id'    => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'component_id' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_preset'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_start'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
-			'date_end'     => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'report_id'    => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'component_id' => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_preset'  => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_start'   => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'date_end'     => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
 		];
 	}
 
@@ -110,11 +166,28 @@ class RestApi {
 	 */
 	private static function get_tab_args(): array {
 		return [
-			'report_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'tab'         => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_preset' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_start'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
-			'date_end'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+			'report_id'   => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'tab'         => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_preset' => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_start'  => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'date_end'    => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
 		];
 	}
 
@@ -123,12 +196,32 @@ class RestApi {
 	 */
 	private static function get_export_start_args(): array {
 		return [
-			'report_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'export_id'   => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_preset' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
-			'date_start'  => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
-			'date_end'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
-			'filters'     => [ 'type' => 'object', 'default' => [] ],
+			'report_id'   => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'export_id'   => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_preset' => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'date_start'  => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'date_end'    => [
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'filters'     => [
+				'type' => 'object',
+				'default' => [],
+			],
 		];
 	}
 
@@ -137,8 +230,15 @@ class RestApi {
 	 */
 	private static function get_export_batch_args(): array {
 		return [
-			'export_token' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
-			'batch'        => [ 'required' => true, 'type' => 'integer' ],
+			'export_token' => [
+				'required' => true,
+				'type' => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			],
+			'batch'        => [
+				'required' => true,
+				'type' => 'integer',
+			],
 		];
 	}
 
@@ -167,7 +267,7 @@ class RestApi {
 	 */
 	public static function check_batch_permissions( WP_REST_Request $request ) {
 		$export_token = $request->get_param( 'export_token' );
-		$config       = get_transient( 'reports_export_' . $export_token );
+		$config       = get_transient( self::export_key( $export_token ) );
 
 		if ( ! $config ) {
 			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
@@ -219,7 +319,7 @@ class RestApi {
 			return new WP_REST_Response( [
 				'success' => true,
 				'data'    => $data,
-				'type'    => $component['type'] ?? 'unknown'
+				'type'    => $component['type'] ?? 'unknown',
 			] );
 		} catch ( Exception $e ) {
 			return new WP_Error( 'callback_error', $e->getMessage(), [ 'status' => 500 ] );
@@ -287,7 +387,7 @@ class RestApi {
 						$change           = $raw_data['change'] ?? null;
 						$change_direction = $raw_data['change_direction'] ?? null;
 
-						if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+						if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && (float) $previous_value !== 0.0 ) {
 							$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
 							$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
 							$change           = abs( $change );
@@ -360,7 +460,7 @@ class RestApi {
 					$change           = $raw_data['change'] ?? null;
 					$change_direction = $raw_data['change_direction'] ?? null;
 
-					if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+					if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && (float) $previous_value !== 0.0 ) {
 						$change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
 						$change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
 						$change           = abs( $change );
@@ -441,7 +541,10 @@ class RestApi {
 		}
 
 		$date_range = self::get_date_range_from_request( $request, $report );
-		$args       = [ 'date_range' => $date_range, 'filters' => $filters ];
+		$args       = [
+			'date_range' => $date_range,
+			'filters' => $filters,
+		];
 
 		try {
 			$total_items = call_user_func( $export_config['total_callback'], $args );
@@ -469,7 +572,7 @@ class RestApi {
 		}
 
 		// Only store serializable data - no callbacks/closures
-		set_transient( 'reports_export_' . $export_token, [
+		set_transient( self::export_key( $export_token ), [
 			'report_id'   => $report_id,
 			'export_id'   => $export_id,
 			'filters'     => $filters,
@@ -495,7 +598,7 @@ class RestApi {
 		$export_token = $request->get_param( 'export_token' );
 		$batch        = (int) $request->get_param( 'batch' );
 
-		$config = get_transient( 'reports_export_' . $export_token );
+		$config = get_transient( self::export_key( $export_token ) );
 
 		if ( ! $config ) {
 			return new WP_Error( 'invalid_export', __( 'Export session expired.', 'arraypress' ), [ 'status' => 400 ] );
@@ -553,52 +656,61 @@ class RestApi {
 	}
 
 	/**
-	 * Handle export file downloads via AJAX.
+	 * Stream a finished export file.
+	 *
+	 * @param WP_REST_Request $request The REST request.
+	 *
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public static function handle_download_export(): void {
-		$export_token = sanitize_text_field( $_GET['export_id'] ?? '' );
-		$config       = get_transient( 'reports_export_' . $export_token );
+	public static function handle_download_export( WP_REST_Request $request ) {
+		$export_token = (string) $request->get_param( 'export_token' );
+		$config       = get_transient( self::export_key( $export_token ) );
 
 		if ( ! $config ) {
-			wp_die( __( 'Export not found or expired.', 'arraypress' ) );
+			return new WP_Error( 'export_not_found', __( 'Export not found or expired.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
 		$report = Registry::instance()->get( $config['report_id'] );
 
 		if ( ! $report ) {
-			wp_die( __( 'Invalid report.', 'arraypress' ) );
+			return new WP_Error( 'invalid_report', __( 'Invalid report.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		if ( ! current_user_can( $report->get_config( 'capability', 'manage_options' ) ) ) {
-			wp_die( __( 'Permission denied.', 'arraypress' ) );
+		$path = $config['file_path'] ?? '';
+		$real = '' === $path ? false : realpath( $path );
+		$dir  = realpath( $report->get_export_dir() );
+
+		// The transient is server-written, but a stored path is still the
+		// wrong thing to hand readfile() unverified — confirm it resolves
+		// inside this report's own export directory.
+		if ( false === $real || false === $dir || ! str_starts_with( $real, $dir . DIRECTORY_SEPARATOR ) ) {
+			return new WP_Error( 'export_file_missing', __( 'File not found.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		if ( ! wp_verify_nonce( $_GET['nonce'] ?? '', 'reports_export_' . $export_token ) ) {
-			wp_die( __( 'Invalid request.', 'arraypress' ) );
-		}
-
-		if ( ! isset( $config['file_path'] ) || ! file_exists( $config['file_path'] ) ) {
-			wp_die( __( 'File not found.', 'arraypress' ) );
-		}
-
-		// Use pre-resolved filename from transient (already resolved from callback in start_export)
 		$base_filename = $config['filename'] ?? $config['export_id'] ?? 'export';
+		$filename      = sanitize_file_name( $base_filename . '-' . gmdate( 'Y-m-d' ) . '.csv' );
 
-		$filename = sanitize_file_name( $base_filename . '-' . gmdate( 'Y-m-d' ) . '.csv' );
+		// Take over the response rather than returning one. WP_REST_Server has
+		// already sent Content-Type: application/json by dispatch time, so the
+		// file is streamed from the documented hand-off filter, which runs
+		// before the server encodes anything.
+		add_filter( 'rest_pre_serve_request', static function () use ( $real, $filename, $export_token ): bool {
+			header( 'Content-Type: text/csv; charset=utf-8' );
+			header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+			header( 'Content-Length: ' . filesize( $real ) );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate' );
+			header( 'Pragma: no-cache' );
+			header( 'Expires: 0' );
 
-		header( 'Content-Type: text/csv; charset=utf-8' );
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		header( 'Content-Length: ' . filesize( $config['file_path'] ) );
-		header( 'Cache-Control: no-store, no-cache, must-revalidate' );
-		header( 'Pragma: no-cache' );
-		header( 'Expires: 0' );
+			readfile( $real );
 
-		readfile( $config['file_path'] );
+			unlink( $real );
+			delete_transient( self::export_key( $export_token ) );
 
-		unlink( $config['file_path'] );
-		delete_transient( 'reports_export_' . $export_token );
+			return true;
+		} );
 
-		exit;
+		return new WP_REST_Response( null, 200 );
 	}
 
 	/**
@@ -621,5 +733,4 @@ class RestApi {
 
 		return Dates::get_range_full( $preset, $date_start ?? '', $date_end ?? '' );
 	}
-
 }

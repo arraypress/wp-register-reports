@@ -12,6 +12,9 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\RegisterReports\RestApi;
+use ArrayPress\RegisterReports\Utils\Runtime;
+
 /**
  * Trait ExportHandler
  *
@@ -26,7 +29,7 @@ trait ExportHandler {
 	 */
 	public function get_export_dir(): string {
 		$upload_dir = wp_upload_dir();
-		$export_dir = trailingslashit( $upload_dir['basedir'] ) . 'reports-exports';
+		$export_dir = trailingslashit( $upload_dir['basedir'] ) . Runtime::key( 'exports' );
 
 		if ( ! file_exists( $export_dir ) ) {
 			wp_mkdir_p( $export_dir );
@@ -57,10 +60,9 @@ trait ExportHandler {
 	 */
 	public function get_download_url( string $export_id ): string {
 		return add_query_arg( [
-			'action'    => 'reports_download_export',
-			'export_id' => $export_id,
-			'nonce'     => wp_create_nonce( 'reports_export_' . $export_id ),
-		], admin_url( 'admin-ajax.php' ) );
+			'export_token' => $export_id,
+			'_wpnonce'     => wp_create_nonce( 'wp_rest' ),
+		], rest_url( RestApi::rest_namespace() . '/export/download' ) );
 	}
 
 	/**
@@ -150,7 +152,12 @@ trait ExportHandler {
 		// Clean up expired transients
 		global $wpdb;
 
-		$like       = $wpdb->esc_like( '_transient_reports_export_' ) . '%';
+		$like = $wpdb->esc_like( '_transient_' . Runtime::key( 'export' ) . '_' ) . '%';
+
+		// Enumerating this build's own export transients has no API: there is
+		// no "list transients by prefix". The result is the cleanup worklist
+		// itself, so caching it would defeat the sweep.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$transients = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
@@ -159,11 +166,11 @@ trait ExportHandler {
 		);
 
 		foreach ( $transients as $transient ) {
-			$export_id = str_replace( '_transient_reports_export_', '', $transient );
-			$config    = get_transient( 'reports_export_' . $export_id );
+			$export_id = str_replace( '_transient_' . Runtime::key( 'export' ) . '_', '', $transient );
+			$config    = get_transient( Runtime::key( 'export' ) . '_' . $export_id );
 
 			if ( ! $config || ! isset( $config['file_path'] ) || ! $wp_filesystem->exists( $config['file_path'] ) ) {
-				delete_transient( 'reports_export_' . $export_id );
+				delete_transient( Runtime::key( 'export' ) . '_' . $export_id );
 			}
 		}
 	}
@@ -369,10 +376,10 @@ trait ExportHandler {
 		$default = $filter['default'] ?? '';
 		?>
 		<input type="date"
-		       id="<?php echo esc_attr( $field_id ); ?>"
-		       name="<?php echo esc_attr( $field_name ); ?>"
-		       value="<?php echo esc_attr( $default ); ?>"
-		       class="reports-filter-input">
+				id="<?php echo esc_attr( $field_id ); ?>"
+				name="<?php echo esc_attr( $field_name ); ?>"
+				value="<?php echo esc_attr( $default ); ?>"
+				class="reports-filter-input">
 		<?php
 	}
 
@@ -391,18 +398,18 @@ trait ExportHandler {
 		?>
 		<div class="reports-daterange-inputs">
 			<input type="date"
-			       id="<?php echo esc_attr( $field_id ); ?>_start"
-			       name="<?php echo esc_attr( $field_name ); ?>_start"
-			       value="<?php echo esc_attr( $default_start ); ?>"
-			       class="reports-filter-input"
-			       placeholder="<?php esc_attr_e( 'Start Date', 'arraypress' ); ?>">
+					id="<?php echo esc_attr( $field_id ); ?>_start"
+					name="<?php echo esc_attr( $field_name ); ?>_start"
+					value="<?php echo esc_attr( $default_start ); ?>"
+					class="reports-filter-input"
+					placeholder="<?php esc_attr_e( 'Start Date', 'arraypress' ); ?>">
 			<span class="reports-daterange-separator"><?php esc_html_e( 'to', 'arraypress' ); ?></span>
 			<input type="date"
-			       id="<?php echo esc_attr( $field_id ); ?>_end"
-			       name="<?php echo esc_attr( $field_name ); ?>_end"
-			       value="<?php echo esc_attr( $default_end ); ?>"
-			       class="reports-filter-input"
-			       placeholder="<?php esc_attr_e( 'End Date', 'arraypress' ); ?>">
+					id="<?php echo esc_attr( $field_id ); ?>_end"
+					name="<?php echo esc_attr( $field_name ); ?>_end"
+					value="<?php echo esc_attr( $default_end ); ?>"
+					class="reports-filter-input"
+					placeholder="<?php esc_attr_e( 'End Date', 'arraypress' ); ?>">
 		</div>
 		<?php
 	}
@@ -424,9 +431,9 @@ trait ExportHandler {
 			<?php foreach ( $options as $value => $label ) : ?>
 				<label class="reports-checkbox-label">
 					<input type="checkbox"
-					       name="<?php echo esc_attr( $field_name ); ?>[]"
-					       value="<?php echo esc_attr( $value ); ?>"
-					       class="reports-filter-input"
+							name="<?php echo esc_attr( $field_name ); ?>[]"
+							value="<?php echo esc_attr( $value ); ?>"
+							class="reports-filter-input"
 						<?php checked( in_array( $value, $default, true ) ); ?>>
 					<?php echo esc_html( $label ); ?>
 				</label>
@@ -449,11 +456,11 @@ trait ExportHandler {
 		$placeholder = $filter['placeholder'] ?? '';
 		?>
 		<input type="text"
-		       id="<?php echo esc_attr( $field_id ); ?>"
-		       name="<?php echo esc_attr( $field_name ); ?>"
-		       value="<?php echo esc_attr( $default ); ?>"
-		       placeholder="<?php echo esc_attr( $placeholder ); ?>"
-		       class="reports-filter-input regular-text">
+				id="<?php echo esc_attr( $field_id ); ?>"
+				name="<?php echo esc_attr( $field_name ); ?>"
+				value="<?php echo esc_attr( $default ); ?>"
+				placeholder="<?php echo esc_attr( $placeholder ); ?>"
+				class="reports-filter-input regular-text">
 		<?php
 	}
 
@@ -473,5 +480,4 @@ trait ExportHandler {
 
 		return null;
 	}
-
 }

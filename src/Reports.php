@@ -89,37 +89,37 @@ class Reports {
      * @var array
      */
     protected array $defaults = [
-            'page_title'       => 'Reports',
-            'menu_title'       => 'Reports',
-            'menu_slug'        => '',
-            'capability'       => 'manage_options',
-            'parent_slug'      => '',
-            'icon'             => 'dashicons-chart-area',
-            'position'         => null,
-            'tabs'             => [],
-            'components'       => [],
-            'exports'          => [],
-            'show_title'       => true,
-            'show_tabs'        => true,
-            'show_date_picker' => true,
-            'body_class'       => '',
+		'page_title'       => 'Reports',
+		'menu_title'       => 'Reports',
+		'menu_slug'        => '',
+		'capability'       => 'manage_options',
+		'parent_slug'      => '',
+		'icon'             => 'dashicons-chart-area',
+		'position'         => null,
+		'tabs'             => [],
+		'components'       => [],
+		'exports'          => [],
+		'show_title'       => true,
+		'show_tabs'        => true,
+		'show_date_picker' => true,
+		'body_class'       => '',
 
         // Branded header options
             'logo'             => '',
-            'header_title'     => '',
-            'header_class'     => '',
+		'header_title'     => '',
+		'header_class'     => '',
 
         // Date range options
             'date_presets'     => [],
-            'default_preset'   => 'this_month',
+		'default_preset'   => 'this_month',
 
         // Refresh options
             'auto_refresh'     => 0,     // Seconds between auto-refresh. 0 = disabled
-            'show_refresh'     => true,  // Show manual refresh button
+		'show_refresh'     => true,  // Show manual refresh button
 
         // Help screen options
-            'help_tabs'        => [],
-            'help_sidebar'     => '',
+		'help_tabs'        => [],
+		'help_sidebar'     => '',
     ];
 
     /**
@@ -281,11 +281,11 @@ class Reports {
         if ( ! empty( $this->config['help_tabs'] ) ) {
             foreach ( $this->config['help_tabs'] as $tab_id => $tab ) {
                 $screen->add_help_tab( [
-                        'id'       => $this->id . '_' . $tab_id,
-                        'title'    => $tab['title'] ?? $tab_id,
-                        'content'  => $tab['content'] ?? '',
-                        'callback' => $tab['callback'] ?? null,
-                        'priority' => $tab['priority'] ?? 10,
+					'id'       => $this->id . '_' . $tab_id,
+					'title'    => $tab['title'] ?? $tab_id,
+					'content'  => $tab['content'] ?? '',
+					'callback' => $tab['callback'] ?? null,
+					'priority' => $tab['priority'] ?? 10,
                 ] );
             }
         }
@@ -344,7 +344,7 @@ class Reports {
             $param_name = 'filter_' . $filter_key;
 
             if ( isset( $_GET[ $param_name ] ) ) {
-                $values[ $filter_key ] = sanitize_text_field( $_GET[ $param_name ] );
+                $values[ $filter_key ] = sanitize_text_field( wp_unslash( $_GET[ $param_name ] ) );
             } else {
                 $values[ $filter_key ] = $filter['default'] ?? '';
             }
@@ -400,8 +400,8 @@ class Reports {
                 <div class="reports-header__actions">
                     <?php if ( $show_refresh || $auto_refresh > 0 ) : ?>
                         <div class="reports-refresh-controls"
-                             data-auto-refresh="<?php echo esc_attr( $auto_refresh ); ?>"
-                             data-report-id="<?php echo esc_attr( $this->id ); ?>">
+                            data-auto-refresh="<?php echo esc_attr( $auto_refresh ); ?>"
+                            data-report-id="<?php echo esc_attr( $this->id ); ?>">
                             <?php if ( $auto_refresh > 0 ) : ?>
                                 <span class="reports-last-updated">
                                 <span class="reports-last-updated-text"><?php esc_html_e( 'Updated just now', 'arraypress' ); ?></span>
@@ -468,16 +468,18 @@ class Reports {
                         printf(
                                 '<input type="hidden" name="%s" value="%s">',
                                 esc_attr( $param ),
-                                esc_attr( sanitize_text_field( $_GET[ $param ] ) )
+                                esc_attr( sanitize_text_field( wp_unslash( $_GET[ $param ] ) ) )
                         );
                     }
                 }
                 ?>
 
                 <div class="reports-filter-fields">
-                    <?php foreach ( $filters as $filter_key => $filter ) :
+                    <?php
+                    foreach ( $filters as $filter_key => $filter ) :
                         $this->render_filter_field( $filter_key, $filter );
-                    endforeach; ?>
+                    endforeach;
+                    ?>
                 </div>
 
                 <button type="submit" class="button reports-filter-submit">
@@ -500,7 +502,7 @@ class Reports {
         $type          = $filter['type'] ?? 'select';
         $label         = $filter['label'] ?? ucfirst( $filter_key );
         $param_name    = 'filter_' . $filter_key;
-        $current_value = isset( $_GET[ $param_name ] ) ? sanitize_text_field( $_GET[ $param_name ] ) : ( $filter['default'] ?? '' );
+        $current_value = isset( $_GET[ $param_name ] ) ? sanitize_text_field( wp_unslash( $_GET[ $param_name ] ) ) : ( $filter['default'] ?? '' );
 
         ?>
         <div class="reports-filter-field reports-filter-<?php echo esc_attr( $type ); ?>">
@@ -517,17 +519,17 @@ class Reports {
 
             <?php elseif ( $type === 'checkbox' ) : ?>
                 <input type="checkbox"
-                       name="<?php echo esc_attr( $param_name ); ?>"
-                       id="<?php echo esc_attr( $param_name ); ?>"
-                       value="1"
+                        name="<?php echo esc_attr( $param_name ); ?>"
+                        id="<?php echo esc_attr( $param_name ); ?>"
+                        value="1"
                         <?php checked( $current_value, '1' ); ?>>
 
             <?php elseif ( $type === 'text' ) : ?>
                 <input type="text"
-                       name="<?php echo esc_attr( $param_name ); ?>"
-                       id="<?php echo esc_attr( $param_name ); ?>"
-                       value="<?php echo esc_attr( $current_value ); ?>"
-                       placeholder="<?php echo esc_attr( $filter['placeholder'] ?? '' ); ?>">
+                        name="<?php echo esc_attr( $param_name ); ?>"
+                        id="<?php echo esc_attr( $param_name ); ?>"
+                        value="<?php echo esc_attr( $current_value ); ?>"
+                        placeholder="<?php echo esc_attr( $filter['placeholder'] ?? '' ); ?>">
 
             <?php endif; ?>
         </div>
@@ -597,12 +599,12 @@ class Reports {
      * Get a specific config value.
      *
      * @param string $key     Config key.
-     * @param mixed  $default Default value.
+     * @param mixed  $fallback Value returned when the key is absent.
      *
      * @return mixed
      */
-    public function get_config( string $key, $default = null ) {
-        return $this->config[ $key ] ?? $default;
+    public function get_config( string $key, $fallback = null ) {
+        return $this->config[ $key ] ?? $fallback;
     }
 
     /**
@@ -640,5 +642,4 @@ class Reports {
     public function get_hook_suffix(): string {
         return $this->hook_suffix;
     }
-
 }

@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\RegisterReports\Utils\Runtime;
+
 use ArrayPress\DateUtils\Dates;
 
 /**
@@ -101,7 +103,7 @@ trait ComponentRenderer {
          * @param array  $component    Component configuration.
          * @param array  $date_range   Current date range.
          */
-        $rendered = apply_filters( 'reports_render_component', false, $component_id, $component, $this->date_range );
+        $rendered = apply_filters( Runtime::hook( 'render_component' ), false, $component_id, $component, $this->date_range );
 
         if ( $rendered ) {
             return;
@@ -162,7 +164,7 @@ trait ComponentRenderer {
         $change           = $data['change'] ?? null;
         $change_direction = $data['change_direction'] ?? null;
 
-        if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && $previous_value != 0 ) {
+        if ( $change === null && $previous_value !== null && is_numeric( $value ) && is_numeric( $previous_value ) && (float) $previous_value !== 0.0 ) {
             $change           = ( ( $value - $previous_value ) / abs( $previous_value ) ) * 100;
             $change_direction = $change > 0 ? 'up' : ( $change < 0 ? 'down' : 'neutral' );
             $change           = abs( $change );
@@ -179,7 +181,7 @@ trait ComponentRenderer {
 
         ?>
         <div class="reports-tile"
-             data-component-id="<?php echo esc_attr( $component_id ); ?>">
+            data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
             <div class="reports-tile-header">
                 <?php if ( $icon ) : ?>
@@ -242,22 +244,24 @@ trait ComponentRenderer {
 
         ?>
         <div class="reports-tiles-wrapper"
-             data-component-id="<?php echo esc_attr( $component_id ); ?>">
+            data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
             <?php if ( ! empty( $component['title'] ) ) : ?>
                 <h3 class="reports-tiles-wrapper-title"><?php echo esc_html( $component['title'] ); ?></h3>
             <?php endif; ?>
 
             <div class="reports-tiles-grid reports-tiles-columns-<?php echo esc_attr( $columns ); ?>">
-                <?php foreach ( $tiles as $tile_id => $tile ) :
+                <?php
+                foreach ( $tiles as $tile_id => $tile ) :
                     $tile = wp_parse_args( $tile, [
-                            'type'         => 'tile',
-                            'icon'         => 'dashicons-chart-bar',
-                            'icon_color'   => 'gray',
-                            'value_format' => 'number',
+						'type'         => 'tile',
+						'icon'         => 'dashicons-chart-bar',
+						'icon_color'   => 'gray',
+						'value_format' => 'number',
                     ] );
                     $this->render_tile( $component_id . '_' . $tile_id, $tile );
-                endforeach; ?>
+                endforeach;
+                ?>
             </div>
         </div>
         <?php
@@ -284,20 +288,20 @@ trait ComponentRenderer {
 
         // Prepare chart configuration
         $chart_config = [
-                'type'    => $chart_type,
-                'data'    => [
-                        'labels'   => $data['labels'] ?? [],
-                        'datasets' => $data['datasets'] ?? [],
-                ],
-                'options' => $this->get_chart_options( $component, $chart_type ),
+			'type'    => $chart_type,
+			'data'    => [
+				'labels'   => $data['labels'] ?? [],
+				'datasets' => $data['datasets'] ?? [],
+			],
+			'options' => $this->get_chart_options( $component, $chart_type ),
         ];
 
         $width_class = $this->get_width_class( $component['width'] ?? 'full' );
 
         ?>
         <div class="reports-chart-wrapper <?php echo esc_attr( $width_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
-             data-component-id="<?php echo esc_attr( $component_id ); ?>"
-             data-ajax-refresh="<?php echo $component['ajax_refresh'] ? 'true' : 'false'; ?>">
+            data-component-id="<?php echo esc_attr( $component_id ); ?>"
+            data-ajax-refresh="<?php echo $component['ajax_refresh'] ? 'true' : 'false'; ?>">
 
             <?php if ( ! empty( $component['title'] ) ) : ?>
                 <?php $period_label = $this->get_period_label(); ?>
@@ -338,39 +342,39 @@ trait ComponentRenderer {
      */
     protected function get_chart_options( array $component, string $chart_type ): array {
         $options = [
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => [
-                        'legend'  => [
-                                'display'  => $component['show_legend'] ?? true,
-                                'position' => $component['legend_position'] ?? 'top',
-                        ],
-                        'tooltip' => [
-                                'enabled'   => true,
-                                'mode'      => 'index',
-                                'intersect' => false,
-                        ],
-                ],
+			'responsive'          => true,
+			'maintainAspectRatio' => false,
+			'plugins'             => [
+				'legend'  => [
+					'display'  => $component['show_legend'] ?? true,
+					'position' => $component['legend_position'] ?? 'top',
+				],
+				'tooltip' => [
+					'enabled'   => true,
+					'mode'      => 'index',
+					'intersect' => false,
+				],
+			],
         ];
 
         // Add scales for line, bar, area charts
         if ( in_array( $chart_type, [ 'line', 'bar', 'area' ], true ) ) {
             $options['scales'] = [
-                    'x' => [
-                            'display' => true,
-                            'title'   => [
-                                    'display' => ! empty( $component['x_axis_label'] ),
-                                    'text'    => $component['x_axis_label'] ?? '',
-                            ],
-                    ],
-                    'y' => [
-                            'display'     => true,
-                            'beginAtZero' => true,
-                            'title'       => [
-                                    'display' => ! empty( $component['y_axis_label'] ),
-                                    'text'    => $component['y_axis_label'] ?? '',
-                            ],
-                    ],
+				'x' => [
+					'display' => true,
+					'title'   => [
+						'display' => ! empty( $component['x_axis_label'] ),
+						'text'    => $component['x_axis_label'] ?? '',
+					],
+				],
+				'y' => [
+					'display'     => true,
+					'beginAtZero' => true,
+					'title'       => [
+						'display' => ! empty( $component['y_axis_label'] ),
+						'text'    => $component['y_axis_label'] ?? '',
+					],
+				],
             ];
 
             // Stacked option
@@ -383,9 +387,9 @@ trait ComponentRenderer {
         // Line chart specific options
         if ( $chart_type === 'line' || $chart_type === 'area' ) {
             $options['elements'] = [
-                    'line' => [
-                            'tension' => $component['tension'] ?? 0.4,
-                    ],
+				'line' => [
+					'tension' => $component['tension'] ?? 0.4,
+				],
             ];
         }
 
@@ -425,9 +429,9 @@ trait ComponentRenderer {
             $column_format = is_array( $column ) ? ( $column['format'] ?? '' ) : '';
 
             $js_columns[] = [
-                    'key'    => $column_key,
-                    'label'  => $column_label,
-                    'format' => $column_format,
+				'key'    => $column_key,
+				'label'  => $column_label,
+				'format' => $column_format,
             ];
         }
 
@@ -435,29 +439,29 @@ trait ComponentRenderer {
         $js_row_actions = [];
         foreach ( $row_actions as $action_key => $action ) {
             $js_row_actions[] = [
-                    'key'     => $action_key,
-                    'label'   => $action['label'] ?? ucfirst( $action_key ),
-                    'url'     => $action['url'] ?? '#',
-                    'class'   => $action['class'] ?? '',
-                    'confirm' => $action['confirm'] ?? '',
-                    'target'  => $action['target'] ?? '',
+				'key'     => $action_key,
+				'label'   => $action['label'] ?? ucfirst( $action_key ),
+				'url'     => $action['url'] ?? '#',
+				'class'   => $action['class'] ?? '',
+				'confirm' => $action['confirm'] ?? '',
+				'target'  => $action['target'] ?? '',
             ];
         }
 
         // Build table config data attribute
         $table_config = [
-                'columns'      => $js_columns,
-                'rowActions'   => $js_row_actions,
-                'emptyMessage' => $empty_message,
-                'paginated'    => $is_paginated,
-                'perPage'      => $per_page,
+			'columns'      => $js_columns,
+			'rowActions'   => $js_row_actions,
+			'emptyMessage' => $empty_message,
+			'paginated'    => $is_paginated,
+			'perPage'      => $per_page,
         ];
 
         ?>
         <div class="reports-table-wrapper <?php echo esc_attr( $width_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
-             data-component-id="<?php echo esc_attr( $component_id ); ?>"
-             data-ajax-refresh="<?php echo ! empty( $component['ajax_refresh'] ) ? 'true' : 'false'; ?>"
-             data-table-config="<?php echo esc_attr( wp_json_encode( $table_config ) ); ?>">
+            data-component-id="<?php echo esc_attr( $component_id ); ?>"
+            data-ajax-refresh="<?php echo ! empty( $component['ajax_refresh'] ) ? 'true' : 'false'; ?>"
+            data-table-config="<?php echo esc_attr( wp_json_encode( $table_config ) ); ?>">
 
             <?php if ( ! empty( $component['title'] ) ) : ?>
                 <div class="reports-table-header">
@@ -469,8 +473,8 @@ trait ComponentRenderer {
             <?php endif; ?>
 
             <div class="reports-table-container"
-                 data-paginated="<?php echo $is_paginated ? 'true' : 'false'; ?>"
-                 data-per-page="<?php echo esc_attr( $per_page ); ?>">
+                data-paginated="<?php echo $is_paginated ? 'true' : 'false'; ?>"
+                data-per-page="<?php echo esc_attr( $per_page ); ?>">
 
                 <?php if ( empty( $rows ) ) : ?>
                     <div class="reports-table-empty">
@@ -480,7 +484,8 @@ trait ComponentRenderer {
                     <table class="reports-table widefat striped">
                         <thead>
                         <tr>
-                            <?php foreach ( $columns as $key => $column ) :
+                            <?php
+                            foreach ( $columns as $key => $column ) :
                                 $column_key   = is_string( $key ) ? $key : $column;
                                 $column_label = is_array( $column ) ? ( $column['label'] ?? $key ) : $column;
                                 $is_sortable = $component['sortable'] ?? false;
@@ -501,7 +506,8 @@ trait ComponentRenderer {
                         <tbody>
                         <?php foreach ( $rows as $row ) : ?>
                             <tr>
-                                <?php foreach ( $columns as $key => $column ) :
+                                <?php
+                                foreach ( $columns as $key => $column ) :
                                     $column_key = is_string( $key ) ? $key : $column;
                                     $cell_value = $row[ $column_key ] ?? '';
                                     $format = is_array( $column ) ? ( $column['format'] ?? '' ) : '';
@@ -585,6 +591,9 @@ trait ComponentRenderer {
             $action_links[] = sprintf( '<a %s>%s</a>', $attrs, esc_html( $label ) );
         }
 
+        // Each link in $action_links was assembled above from esc_attr()/esc_html()
+        // parts; there is nothing left here for the sniff to escape.
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo '<div class="reports-row-actions-wrap">' . implode( ' <span class="sep">|</span> ', $action_links ) . '</div>';
     }
 
@@ -601,7 +610,7 @@ trait ComponentRenderer {
 
         ?>
         <div class="reports-html-component <?php echo esc_attr( $width_class . ' ' . ( $component['class'] ?? '' ) ); ?>"
-             data-component-id="<?php echo esc_attr( $component_id ); ?>">
+            data-component-id="<?php echo esc_attr( $component_id ); ?>">
 
             <?php if ( ! empty( $component['title'] ) ) : ?>
                 <h3 class="reports-html-title"><?php echo esc_html( $component['title'] ); ?></h3>
@@ -663,7 +672,7 @@ trait ComponentRenderer {
                 return number_format_i18n( (float) $value, 1 ) . '%';
 
             case 'number':
-                if ( is_float( $value ) && floor( $value ) != $value ) {
+                if ( is_float( $value ) && floor( $value ) !== $value ) {
                     return number_format_i18n( (float) $value, 2 );
                 }
 
@@ -701,5 +710,4 @@ trait ComponentRenderer {
 
         return $prefix . number_format_i18n( (float) $change, 1 ) . '%';
     }
-
 }
