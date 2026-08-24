@@ -21,133 +21,6 @@
 }
 
 /* ==========================================================================
-   Modern Header (outside .wrap, matches RegisterSettingFields/EDD pattern)
-   ========================================================================== */
-
-.reports-header {
-    background: #fff;
-    border-bottom: 1px solid #c3c4c7;
-    margin: 0 0 0 -20px;
-    padding: 0;
-    position: relative;
-}
-
-.reports-header__inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 80px;
-    padding: 0 20px;
-    gap: 20px;
-}
-
-.reports-header__branding {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.reports-header__logo {
-    max-height: 36px;
-    width: auto;
-}
-
-.reports-header__separator {
-    color: #c3c4c7;
-    font-size: 24px;
-    font-weight: 300;
-}
-
-.reports-header__title {
-    margin: 0;
-    padding: 0;
-    font-size: 21px;
-    font-weight: 400;
-    line-height: 1.3;
-    color: #1d2327;
-}
-
-.reports-header__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-right: 96px;
-}
-
-/* ==========================================================================
-   Tabs Row
-   ========================================================================== */
-
-.reports-header__tabs {
-    position: relative;
-    border-top: 1px solid #dcdcde;
-    padding: 0 20px;
-}
-
-.reports-header__tabs .reports-tabs-nav {
-    display: flex;
-    gap: 0;
-    margin: 0;
-    padding: 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.reports-header__tabs .reports-tabs-nav::-webkit-scrollbar {
-    display: none;
-}
-
-.reports-header__tabs .reports-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 16px;
-    color: #50575e;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 500;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -1px;
-    transition: color 0.2s ease, border-color 0.2s ease;
-    white-space: nowrap;
-}
-
-.reports-header__tabs .reports-tab:hover {
-    color: #1d2327;
-    border-bottom-color: #c3c4c7;
-}
-
-.reports-header__tabs .reports-tab:focus {
-    outline: none;
-    box-shadow: inset 0 0 0 1px rgba(34, 113, 177, 0.3);
-}
-
-.reports-header__tabs .reports-tab-active {
-    color: #1d2327;
-    border-bottom-color: #2271b1;
-}
-
-.reports-header__tabs .reports-tab-active:hover {
-    border-bottom-color: #2271b1;
-}
-
-.reports-header__tabs .reports-tab .dashicons {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-}
-
-/* ==========================================================================
-   Mobile Tabs Toggle
-   ========================================================================== */
-
-.reports-tabs-toggle {
-    display: none;
-}
-
-/* ==========================================================================
    Filter Bar (inside header)
    ========================================================================== */
 
@@ -188,140 +61,15 @@
 }
 
 /* ==========================================================================
-   Responsive - Tablet
-   ========================================================================== */
-
-@media screen and (max-width: 782px) {
-    .reports-header {
-        margin-left: -10px;
-    }
-
-    .reports-header__inner {
-        flex-direction: column;
-        align-items: flex-start;
-        min-height: auto;
-        padding: 15px;
-        gap: 12px;
-    }
-
-    .reports-header__branding {
-        width: 100%;
-    }
-
-    .reports-header__actions {
-        width: 100%;
-        justify-content: flex-start;
-    }
-
-    .reports-header__tabs {
-        padding: 0 15px;
-    }
-
-    .reports-header__tabs .reports-tab {
-        padding: 10px 12px;
-        font-size: 12px;
-    }
-}
-
-/* ==========================================================================
    Responsive - Mobile (Dropdown Menu)
    ========================================================================== */
 
 @media screen and (max-width: 600px) {
-    .reports-header__inner {
-        padding: 10px 15px;
-    }
-
-    .reports-header__tabs {
-        padding: 0;
-        border-top: none;
-    }
-
-    /* Toggle button - visible on mobile */
-    .reports-tabs-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        padding: 12px 15px;
-        background: #f6f7f7;
-        border: none;
-        border-top: 1px solid #dcdcde;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        color: #1d2327;
-        text-align: left;
-    }
-
-    .reports-tabs-toggle:hover {
-        background: #f0f0f1;
-    }
-
-    .reports-tabs-toggle:focus {
-        outline: none;
-        box-shadow: inset 0 0 0 1px #2271b1;
-    }
-
-    .reports-tabs-toggle .dashicons {
-        color: #50575e;
-        transition: transform 0.2s ease;
-    }
-
-    .reports-header__tabs.is-open .reports-tabs-toggle .dashicons {
-        transform: rotate(180deg);
-    }
-
-    /* Dropdown navigation */
-    .reports-header__tabs .reports-tabs-nav {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        flex-direction: column;
-        background: #fff;
-        border: 1px solid #c3c4c7;
-        border-top: none;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        z-index: 100;
-        overflow: visible;
-    }
-
-    .reports-header__tabs.is-open .reports-tabs-nav {
-        display: flex;
-    }
-
-    .reports-header__tabs .reports-tab {
-        padding: 12px 15px;
-        border-bottom: 1px solid #e5e5e5;
-        border-left: 3px solid transparent;
-        margin-bottom: 0;
-    }
-
-    .reports-header__tabs .reports-tab:last-child {
-        border-bottom: none;
-    }
-
-    .reports-header__tabs .reports-tab:hover {
-        background: #f6f7f7;
-        border-bottom-color: #e5e5e5;
-    }
-
-    .reports-header__tabs .reports-tab-active {
-        background: #f0f6fc;
-        border-left-color: #2271b1;
-        border-bottom-color: #e5e5e5;
-    }
-
-    .reports-header__tabs .reports-tab-active:last-child {
-        border-bottom-color: transparent;
-    }
-
     /* Filter bar adjustments for mobile */
     .reports-filter-bar {
         padding: 12px 15px;
     }
+
 }
 
 /* ==========================================================================
@@ -556,9 +304,11 @@ button.reports-date-picker-toggle.button {
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
+
 }
 
 /* Loading overlay for components during refresh */
@@ -1166,24 +916,10 @@ button.reports-date-picker-toggle.button {
     .reports-tiles-grid.reports-tiles-columns-4 {
         grid-template-columns: repeat(2, 1fr);
     }
+
 }
 
 @media screen and (max-width: 782px) {
-    .reports-header {
-        margin: -8px -10px 0 -10px;
-    }
-
-    .reports-header-top {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 12px 15px;
-    }
-
-    .reports-header-tabs {
-        padding: 0 10px;
-    }
-
     .reports-tab {
         padding: 10px 12px;
         font-size: 12px;
@@ -1206,6 +942,7 @@ button.reports-date-picker-toggle.button {
     #screen-meta-links {
         margin-left: -10px;
     }
+
 }
 
 @media screen and (max-width: 480px) {
@@ -1222,4 +959,6 @@ button.reports-date-picker-toggle.button {
     .reports-tab .dashicons {
         display: none;
     }
+
 }
+

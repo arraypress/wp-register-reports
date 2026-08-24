@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports;
 
+use ArrayPress\FieldKit\Support\PageHeader;
+
 use ArrayPress\DateUtils\Dates;
 use ArrayPress\RegisterReports\Traits\AssetManager;
 use ArrayPress\RegisterReports\Traits\ComponentRenderer;
@@ -363,90 +365,114 @@ class Reports {
      * @return void
      */
     protected function render_header( string $current_tab ): void {
-        $logo_url     = $this->config['logo'] ?? '';
         $header_title = ! empty( $this->config['header_title'] )
                 ? $this->config['header_title']
                 : $this->config['page_title'];
-        $show_title   = $this->config['show_title'] ?? true;
-        $show_refresh = $this->config['show_refresh'] ?? true;
-        $auto_refresh = (int) ( $this->config['auto_refresh'] ?? 0 );
-        $tab_filters  = $this->tabs[ $current_tab ]['filters'] ?? [];
 
-        $has_title = $show_title && ! empty( $header_title );
-        $has_tabs  = $this->config['show_tabs'] && ! empty( $this->tabs );
+        $show_title  = $this->config['show_title'] ?? true;
+        $has_title   = $show_title && ! empty( $header_title );
+        $has_tabs    = $this->config['show_tabs'] && ! empty( $this->tabs );
+        $logo_url    = (string) ( $this->config['logo'] ?? '' );
+        $tab_filters = $this->tabs[ $current_tab ]['filters'] ?? [];
 
-        // Don't render header if nothing to show
-        if ( ! $logo_url && ! $has_title && ! $has_tabs && ! $this->config['show_date_picker'] ) {
+        // Nothing to show: the rule still has to be there, since it is where
+        // core moves admin notices to.
+        if ( '' === $logo_url && ! $has_title && ! $has_tabs && ! $this->config['show_date_picker'] ) {
             echo '<hr class="wp-header-end">';
 
             return;
         }
 
-        ?>
-        <div class="reports-header">
-            <div class="reports-header__inner">
-                <div class="reports-header__branding">
-                    <?php if ( $logo_url ) : ?>
-                        <img src="<?php echo esc_url( $logo_url ); ?>" alt="" class="reports-header__logo">
-                        <?php if ( $has_title ) : ?>
-                            <span class="reports-header__separator">/</span>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                    <?php if ( $has_title ) : ?>
-                        <h1 class="reports-header__title"><?php echo esc_html( $header_title ); ?></h1>
-                    <?php endif; ?>
-                </div>
+        // The kit's header, which is core's own privacy-settings header. This
+        // used to be a header of its own — a different height, a different
+        // type scale, a slash between the logo and the title — so a plugin
+        // with a settings page, a list table and a reports screen had three
+        // headers that were nearly but not quite the same. There is one now.
+        //
+        // The refresh control and the date range go in the actions slot on
+        // the right, which is the whole reason that slot exists.
+        ob_start();
+        $this->render_header_actions();
+        $actions = (string) ob_get_clean();
 
-                <div class="reports-header__actions">
-                    <?php if ( $show_refresh || $auto_refresh > 0 ) : ?>
-                        <div class="reports-refresh-controls"
-                            data-auto-refresh="<?php echo esc_attr( $auto_refresh ); ?>"
-                            data-report-id="<?php echo esc_attr( $this->id ); ?>">
-                            <?php if ( $auto_refresh > 0 ) : ?>
-                                <span class="reports-last-updated">
-                                <span class="reports-last-updated-text"><?php esc_html_e( 'Updated just now', 'arraypress' ); ?></span>
-                            </span>
-                            <?php endif; ?>
-                            <?php if ( $show_refresh ) : ?>
-                                <button type="button" class="reports-refresh-button"
-                                        title="<?php esc_attr_e( 'Refresh', 'arraypress' ); ?>">
-                                    <span class="dashicons dashicons-update"></span>
-                                </button>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
+        $header = PageHeader::render(
+                [
+					'title'         => $has_title ? $header_title : '',
+					'logo'          => $logo_url,
+					'logo_position' => (string) ( $this->config['logo_position'] ?? 'beside' ),
+					'tabs'          => $has_tabs ? $this->header_tabs() : [],
+					'current'       => $current_tab,
+					'actions'       => $actions,
+                ]
+        );
 
-                    <?php if ( $this->config['show_date_picker'] ) : ?>
-                        <?php $this->render_date_picker(); ?>
-                    <?php endif; ?>
-                </div>
-            </div>
+        echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the kit escapes as it builds.
 
-            <?php if ( $has_tabs ) : ?>
-                <div class="reports-header__tabs">
-                    <button type="button" class="reports-tabs-toggle">
-                    <span class="reports-tabs-current">
-                        <?php
-                        $current_label = $this->tabs[ $current_tab ]['label'] ?? '';
-                        $current_icon  = $this->tabs[ $current_tab ]['icon'] ?? '';
-                        if ( $current_icon ) {
-                            echo '<span class="dashicons ' . esc_attr( $current_icon ) . '"></span> ';
-                        }
-                        echo esc_html( $current_label );
-                        ?>
-                    </span>
-                        <span class="dashicons dashicons-arrow-down-alt2"></span>
-                    </button>
-                    <?php $this->render_tabs( $current_tab ); ?>
-                </div>
-            <?php endif; ?>
+        if ( ! empty( $tab_filters ) ) {
+            $this->render_filter_bar( $tab_filters );
+        }
+    }
 
-            <?php if ( ! empty( $tab_filters ) ) : ?>
-                <?php $this->render_filter_bar( $tab_filters ); ?>
-            <?php endif; ?>
-        </div>
-        <hr class="wp-header-end">
-        <?php
+    /**
+     * The tabs, in the shape the kit's header wants.
+     *
+     * @return array<string, array{label: string, url: string, icon: string}>
+     */
+    protected function header_tabs(): array {
+        $tabs = [];
+
+        foreach ( $this->tabs as $key => $tab ) {
+            $tabs[ $key ] = [
+				'label' => (string) ( $tab['label'] ?? $key ),
+				'url'   => $this->get_tab_url( (string) $key ),
+
+				// The library's own configuration spells these
+				// 'dashicons-chart-bar'; the kit takes the name alone.
+				'icon'  => ltrim( (string) ( $tab['icon'] ?? '' ), 'dashicons-' ),
+            ];
+        }
+
+        return $tabs;
+    }
+
+    /**
+     * The refresh control and the date range, for the header's actions slot.
+     *
+     * @return void
+     */
+    protected function render_header_actions(): void {
+        $show_refresh = $this->config['show_refresh'] ?? true;
+        $auto_refresh = (int) ( $this->config['auto_refresh'] ?? 0 );
+
+        if ( $show_refresh || $auto_refresh > 0 ) {
+            printf(
+                    '<div class="reports-refresh-controls" data-auto-refresh="%s" data-report-id="%s">',
+                    esc_attr( (string) $auto_refresh ),
+                    esc_attr( $this->id )
+            );
+
+            if ( $auto_refresh > 0 ) {
+                printf(
+                        '<span class="reports-last-updated"><span class="reports-last-updated-text">%s</span></span>',
+                        esc_html__( 'Updated just now', 'arraypress' )
+                );
+            }
+
+            if ( $show_refresh ) {
+                printf(
+                        '<button type="button" class="reports-refresh-button" title="%s">' .
+                        '<span class="dashicons dashicons-update" aria-hidden="true"></span>' .
+                        '<span class="screen-reader-text">%1$s</span></button>',
+                        esc_attr__( 'Refresh', 'arraypress' )
+                );
+            }
+
+            echo '</div>';
+        }
+
+        if ( $this->config['show_date_picker'] ) {
+            $this->render_date_picker();
+        }
     }
 
     /**

@@ -1,73 +1,80 @@
 {
-  "name": "arraypress/wp-register-reports",
-  "description": "WordPress library for registering report pages with charts, tiles, tables, and CSV export functionality.",
-  "homepage": "https://github.com/arraypress/wp-register-reports/",
-  "type": "library",
-  "license": "GPL-2.0-or-later",
-  "authors": [
-    {
-      "name": "David Sherlock",
-      "homepage": "https://arraypress.com/"
-    }
-  ],
-  "require": {
-    "php": ">=8.3",
-    "arraypress/wp-composer-assets": "dev-main",
-    "arraypress/wp-date-utils": "dev-main",
-    "arraypress/wp-currencies": "dev-main"
-  },
-  "autoload": {
-    "psr-4": {
-      "ArrayPress\\RegisterReports\\": "src/"
+    "name": "arraypress/wp-register-reports",
+    "description": "WordPress library for registering report pages with charts, tiles, tables, and CSV export functionality.",
+    "homepage": "https://github.com/arraypress/wp-register-reports/",
+    "type": "library",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "David Sherlock",
+            "homepage": "https://arraypress.com/"
+        }
+    ],
+    "require": {
+        "php": ">=8.3",
+        "arraypress/wp-composer-assets": "dev-main",
+        "arraypress/wp-date-utils": "dev-main",
+        "arraypress/wp-currencies": "dev-main",
+        "arraypress/wp-field-kit": "dev-main"
     },
-    "files": [
-      "src/Functions.php"
-    ]
-  },
-  "config": {
-    "optimize-autoloader": true,
-    "sort-packages": true,
-    "preferred-install": "dist",
-    "allow-plugins": {
-      "dealerdirect/phpcodesniffer-composer-installer": true
-    }
-  },
-  "minimum-stability": "dev",
-  "prefer-stable": true,
-  "support": {
-    "issues": "https://github.com/arraypress/wp-register-reports/issues",
-    "source": "https://github.com/arraypress/wp-register-reports"
-  },
-  "keywords": [
-    "wordpress",
-    "reports",
-    "analytics",
-    "charts",
-    "graphs",
-    "tiles",
-    "statistics",
-    "csv-export",
-    "admin",
-    "dashboard"
-  ],
-  "require-dev": {
-    "phpcompatibility/phpcompatibility-wp": "^2.1",
-    "phpunit/phpunit": "^12.0",
-    "squizlabs/php_codesniffer": "^3.13.5",
-    "wp-coding-standards/wpcs": "^3.4"
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "ArrayPress\\RegisterReports\\Tests\\": "tests/"
+    "autoload": {
+        "psr-4": {
+            "ArrayPress\\RegisterReports\\": "src/"
+        },
+        "files": [
+            "src/Functions.php"
+        ]
     },
-    "exclude-from-classmap": [
-      "/tests/bootstrap.php"
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "preferred-install": "dist",
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "support": {
+        "issues": "https://github.com/arraypress/wp-register-reports/issues",
+        "source": "https://github.com/arraypress/wp-register-reports"
+    },
+    "keywords": [
+        "wordpress",
+        "reports",
+        "analytics",
+        "charts",
+        "graphs",
+        "tiles",
+        "statistics",
+        "csv-export",
+        "admin",
+        "dashboard"
+    ],
+    "require-dev": {
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpunit/phpunit": "^12.0",
+        "squizlabs/php_codesniffer": "^3.13.5",
+        "wp-coding-standards/wpcs": "^3.4"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ArrayPress\\RegisterReports\\Tests\\": "tests/"
+        },
+        "exclude-from-classmap": [
+            "/tests/bootstrap.php"
+        ]
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs",
+        "format": "phpcbf --standard=phpcs-format.xml.dist",
+        "format:check": "phpcs --standard=phpcs-format.xml.dist"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/arraypress/wp-field-kit.git"
+        }
     ]
-  },
-  "scripts": {
-    "test": "phpunit",
-    "lint": "phpcs",
-    "format": "phpcbf --standard=phpcs-format.xml.dist",
-    "format:check": "phpcs --standard=phpcs-format.xml.dist"
-  }
 }
