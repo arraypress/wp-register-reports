@@ -18,6 +18,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /*
+ * Declared before the kit's stubs, which have a `current_user_can` that always
+ * says yes. Fine for a field library; useless for testing that a REST endpoint
+ * refuses somebody, which is the one thing about it worth testing.
+ *
+ * $GLOBALS['rp_caps'] is the list of capabilities the current user has. Null
+ * means all of them, which keeps every other test from having to care.
+ */
+if ( ! function_exists( 'current_user_can' ) ) {
+	function current_user_can( $capability, ...$args ) {
+		$allowed = $GLOBALS['rp_caps'] ?? null;
+
+		return null === $allowed || in_array( $capability, (array) $allowed, true );
+	}
+}
+
+/*
  * The kit's WordPress stubs. This library depends on it, so they are here,
  * and writing a second set would mean two answers to "what does esc_attr do
  * in a test" — which is how a suite ends up passing on markup that would not
@@ -97,6 +113,127 @@ if ( ! function_exists( 'do_action' ) ) {
 if ( ! function_exists( 'esc_js' ) ) {
 	function esc_js( $text ) {
 		return str_replace( [ '\\', "'", '"', "\n", "\r" ], [ '\\\\', "\\'", '\\"', '', '' ], (string) $text );
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $key ) {
+		return $GLOBALS['rp_transients'][ $key ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $key, $value, $expires = 0 ) {
+		$GLOBALS['rp_transients'][ $key ] = $value;
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_transient' ) ) {
+	function delete_transient( $key ) {
+		unset( $GLOBALS['rp_transients'][ $key ] );
+
+		return true;
+	}
+}
+
+/*
+ * The REST classes, to the extent this library uses them. Only what the
+ * permission callbacks touch: a request is a bag of parameters and an error is
+ * a code, a message and a status.
+ */
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+
+		/**
+		 * @var array<string, mixed>
+		 */
+		private array $params = [];
+
+		/**
+		 * @param string $method The method.
+		 * @param string $route  The route.
+		 */
+		public function __construct( string $method = 'GET', string $route = '' ) {
+		}
+
+		/**
+		 * @param string $key   Parameter name.
+		 * @param mixed  $value Parameter value.
+		 *
+		 * @return void
+		 */
+		public function set_param( string $key, $value ): void {
+			$this->params[ $key ] = $value;
+		}
+
+		/**
+		 * @param string $key Parameter name.
+		 *
+		 * @return mixed
+		 */
+		public function get_param( string $key ) {
+			return $this->params[ $key ] ?? null;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+
+		/**
+		 * @var array<string, mixed>
+		 */
+		private array $data;
+
+		/**
+		 * @var string
+		 */
+		private string $code;
+
+		/**
+		 * @var string
+		 */
+		private string $message;
+
+		/**
+		 * @param string $code    Error code.
+		 * @param string $message Error message.
+		 * @param mixed  $data    Error data.
+		 */
+		public function __construct( string $code = '', string $message = '', $data = [] ) {
+			$this->code    = $code;
+			$this->message = $message;
+			$this->data    = (array) $data;
+		}
+
+		/**
+		 * @return string
+		 */
+		public function get_error_code(): string {
+			return $this->code;
+		}
+
+		/**
+		 * @return string
+		 */
+		public function get_error_message(): string {
+			return $this->message;
+		}
+
+		/**
+		 * @return array<string, mixed>
+		 */
+		public function get_error_data(): array {
+			return $this->data;
+		}
+	}
+}
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
 	}
 }
 
