@@ -12,6 +12,7 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\FieldKit\Assets;
 use ArrayPress\RegisterReports\RestApi;
 use ArrayPress\RegisterReports\Utils\Runtime;
 
@@ -53,6 +54,11 @@ trait AssetManager {
 	 * @return void
 	 */
 	protected function enqueue_core_assets(): void {
+		// The kit's, because the header is the kit's. Without it the markup
+		// renders and none of the rules for it load, so the header falls back
+		// to core's .privacy-settings-header and the tabs stack one per line.
+		( new Assets() )->enqueue();
+
 		wp_enqueue_composer_style(
 			Runtime::handle(),
 			__FILE__,

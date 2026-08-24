@@ -96,6 +96,32 @@
             this.initRefresh();
         },
 
+        /* ========================================================================
+         * TWEAKS
+         * ======================================================================== */
+
+        /**
+         * Move any stray notices into our notices container
+         *
+         * @returns {void}
+         */
+        repositionNotices: function () {
+            const $wrap = $('.reports-wrap');
+            const $noticesContainer = $wrap.find('.reports-notices');
+
+            if (!$noticesContainer.length) return;
+
+            // Move any notices that appear before or after the header into our container
+            $wrap.find('.notice, .updated, .error').not('.reports-notices .notice, .reports-notices .updated, .reports-notices .error').each(function () {
+                $(this).appendTo($noticesContainer);
+            });
+
+            // Also catch notices WordPress injects at wrap level
+            $wrap.siblings('.notice, .updated, .error').each(function () {
+                $(this).appendTo($noticesContainer);
+            });
+        },
+
         /**
          * Bind all event handlers
          *
