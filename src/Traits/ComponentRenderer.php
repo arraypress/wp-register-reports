@@ -213,7 +213,14 @@ trait ComponentRenderer {
                     ?>
                     <div class="reports-tile-change <?php echo esc_attr( $change_class ); ?>">
                         <span class="dashicons dashicons-<?php echo esc_attr( $change_icon ); ?>"></span>
-                        <?php echo esc_html( number_format( $change, 1 ) . '%' ); ?>
+                        <?php
+                        // The magnitude only: the arrow beside it carries the
+                        // direction, so a sign here would say it twice.
+                        // number_format_i18n, not number_format — a German
+                        // admin was reading 1.204,50 in the value above and
+                        // 25.0% in the change below it.
+                        echo esc_html( number_format_i18n( (float) $change, 1 ) . '%' );
+                        ?>
                     </div>
                 <?php else : ?>
                     <div class="reports-tile-change change-neutral"></div>

@@ -72,4 +72,32 @@ if ( ! function_exists( 'format_currency' ) ) {
 	}
 }
 
+/*
+ * Filters, which the kit's stubs record but never run. This library applies
+ * its own and expects the value back.
+ */
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters( $hook, $value, ...$args ) {
+		foreach ( $GLOBALS['fk_filters'][ $hook ] ?? [] as $callback ) {
+			$value = $callback( $value, ...$args );
+		}
+
+		return $value;
+	}
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( $hook, ...$args ) {
+		foreach ( $GLOBALS['fk_actions'][ $hook ] ?? [] as $callback ) {
+			$callback( ...$args );
+		}
+	}
+}
+
+if ( ! function_exists( 'esc_js' ) ) {
+	function esc_js( $text ) {
+		return str_replace( [ '\\', "'", '"', "\n", "\r" ], [ '\\\\', "\\'", '\\"', '', '' ], (string) $text );
+	}
+}
+
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';
