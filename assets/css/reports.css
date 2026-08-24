@@ -154,14 +154,14 @@ button.reports-date-picker-toggle.button {
     background: #fff;
     border: 1px solid #8c8f94;
     border-radius: 4px;
-    color: #2271b1;
+    color: var(--wp-admin-theme-color, #2271b1);
     cursor: pointer;
     font-size: 13px;
     line-height: 1;
 }
 
 .reports-date-picker-toggle:hover {
-    border-color: #2271b1;
+    border-color: var(--wp-admin-theme-color, #2271b1);
 }
 
 .reports-date-picker-toggle .dashicons {
@@ -207,7 +207,7 @@ button.reports-date-picker-toggle.button {
 }
 
 .reports-date-preset.active {
-    background: #2271b1;
+    background: var(--wp-admin-theme-color, #2271b1);
     color: #fff;
 }
 
@@ -286,8 +286,8 @@ button.reports-date-picker-toggle.button {
 
 .reports-refresh-button:focus {
     outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
+    border-color: var(--wp-admin-theme-color, #2271b1);
+    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #2271b1);
 }
 
 .reports-refresh-button .dashicons {
@@ -421,7 +421,7 @@ button.reports-date-picker-toggle.button {
 
 .reports-tile-icon.icon-blue {
     background: #e7f3ff;
-    color: #2271b1;
+    color: var(--wp-admin-theme-color, #2271b1);
 }
 
 .reports-tile-icon.icon-green {
@@ -698,13 +698,13 @@ button.reports-date-picker-toggle.button {
 }
 
 .reports-row-action {
-    color: #2271b1;
+    color: var(--wp-admin-theme-color, #2271b1);
     text-decoration: none;
     font-size: 13px;
 }
 
 .reports-row-action:hover {
-    color: #135e96;
+    color: var(--wp-admin-theme-color-darker-10, #135e96);
 }
 
 .reports-row-action.delete,
@@ -848,7 +848,7 @@ button.reports-date-picker-toggle.button {
 
 .reports-export-progress-fill {
     height: 100%;
-    background: #2271b1;
+    background: var(--wp-admin-theme-color, #2271b1);
     border-radius: 4px;
     transition: width 0.3s ease;
 }
