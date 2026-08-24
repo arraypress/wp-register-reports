@@ -363,6 +363,13 @@ button.reports-date-picker-toggle.button {
 .reports-tiles-grid {
     display: grid;
     gap: 16px;
+
+    /* A grid with no template is one column, and one of the two places that
+       builds this markup adds no reports-tiles-columns-N class — so a set of
+       tiles rendered without an explicit column count came out stacked full
+       width, one per row. Auto-fit is the better default anyway: the column
+       count follows the width available rather than a number chosen once. */
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .reports-tiles-grid.reports-tiles-columns-2 {
