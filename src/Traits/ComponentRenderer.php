@@ -12,6 +12,7 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\RegisterReports\Format;
 use ArrayPress\RegisterReports\Utils\Runtime;
 
 use ArrayPress\DateUtils\Dates;
@@ -660,38 +661,7 @@ trait ComponentRenderer {
      * @return string
      */
     protected function format_value( $value, string $format, array $component = [] ): string {
-        switch ( $format ) {
-            case 'currency':
-                // Use wp-currencies library (amounts should be in cents)
-                $cents    = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
-                $currency = $component['currency'] ?? 'USD';
-
-                return format_currency( $cents, $currency );
-
-            case 'percentage':
-                return number_format_i18n( (float) $value, 1 ) . '%';
-
-            case 'number':
-                if ( is_float( $value ) && floor( $value ) !== $value ) {
-                    return number_format_i18n( (float) $value, 2 );
-                }
-
-                return number_format_i18n( (int) $value );
-
-            case 'decimal':
-                return number_format_i18n( (float) $value, 2 );
-
-            case 'date':
-                // Use wp-date-utils for proper UTC to local conversion
-                return Dates::format( $value, 'date' );
-
-            case 'datetime':
-                // Use wp-date-utils for proper UTC to local conversion
-                return Dates::format( $value );
-
-            default:
-                return (string) $value;
-        }
+        return Format::value( $value, $format, (string) ( $component['currency'] ?? 'USD' ) );
     }
 
     /**
@@ -702,12 +672,6 @@ trait ComponentRenderer {
      * @return string
      */
     protected function format_change( $change ): string {
-        if ( $change === null ) {
-            return '';
-        }
-
-        $prefix = $change > 0 ? '+' : '';
-
-        return $prefix . number_format_i18n( (float) $change, 1 ) . '%';
+        return Format::change( $change );
     }
 }

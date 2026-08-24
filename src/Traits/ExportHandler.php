@@ -66,6 +66,53 @@ trait ExportHandler {
 	}
 
 	/**
+	 * The characters a spreadsheet treats as the start of a formula.
+	 *
+	 * @var string[]
+	 */
+	private const FORMULA_STARTS = [ '=', '+', '-', '@', "\t", "\r" ];
+
+	/**
+	 * Write one row, with every cell defused.
+	 *
+	 * A CSV is a text file until somebody opens it in Excel, at which point a
+	 * cell beginning `=`, `+`, `-` or `@` is a formula and runs. An exported
+	 * customer name of `=HYPERLINK("http://evil.test","Click")` becomes a
+	 * link in whoever's spreadsheet, and the more interesting formulas reach
+	 * the filesystem or the network. The data came out of a database that
+	 * anybody with a checkout form can write to.
+	 *
+	 * The fix is the boring one: a leading apostrophe, which every
+	 * spreadsheet reads as "this is text" and does not display.
+	 *
+	 * `escape: ''` is passed because PHP's default is a backslash escape that
+	 * is not in RFC 4180 and confuses other readers — and because leaving it
+	 * out is deprecated from PHP 8.4, which was printing a notice on every
+	 * row of every export.
+	 *
+	 * @param resource $handle An open file.
+	 * @param array    $row    The cells.
+	 *
+	 * @return void
+	 */
+	private static function write_csv_row( $handle, array $row ): void {
+		fputcsv( $handle, array_map( [ self::class, 'defuse' ], $row ), ',', '"', '' );
+	}
+
+	/**
+	 * One cell, as text rather than as a formula.
+	 *
+	 * @param mixed $value The cell.
+	 *
+	 * @return string
+	 */
+	private static function defuse( $value ): string {
+		$value = is_scalar( $value ) || null === $value ? (string) $value : (string) wp_json_encode( $value );
+
+		return '' !== $value && in_array( $value[0], self::FORMULA_STARTS, true ) ? "'" . $value : $value;
+	}
+
+	/**
 	 * Write batch data to CSV file.
 	 *
 	 * @param string $file_path      File path to write to.
@@ -97,17 +144,17 @@ trait ExportHandler {
 				foreach ( array_keys( $first_row ) as $key ) {
 					$header_row[] = $headers[ $key ] ?? $key;
 				}
-				fputcsv( $fp, $header_row );
+				self::write_csv_row( $fp, $header_row );
 			} else {
 				// Fall back to using keys as headers
-				fputcsv( $fp, array_keys( $first_row ) );
+				self::write_csv_row( $fp, array_keys( $first_row ) );
 			}
 		}
 
 		// Write data rows
 		foreach ( $data as $row ) {
 			if ( is_array( $row ) ) {
-				fputcsv( $fp, array_values( $row ) );
+				self::write_csv_row( $fp, array_values( $row ) );
 			}
 		}
 

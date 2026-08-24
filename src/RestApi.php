@@ -494,27 +494,20 @@ class RestApi {
 	}
 
 	/**
-	 * Format a value for API response.
+	 * Format a value for an API response.
+	 *
+	 * The same way the page formats it. These were two implementations and
+	 * they had drifted, so a tile read 1,204.50 on load and 1,204 after the
+	 * first auto-refresh — the number appeared to change on its own.
+	 *
+	 * @param mixed  $value    The value.
+	 * @param string $format   The format.
+	 * @param string $currency Currency code.
+	 *
+	 * @return string
 	 */
 	private static function format_value_for_api( $value, string $format, string $currency = 'USD' ): string {
-		switch ( $format ) {
-			case 'currency':
-				$cents = is_float( $value ) ? (int) ( $value * 100 ) : (int) $value;
-
-				return format_currency( $cents, $currency );
-
-			case 'percentage':
-				return number_format( (float) $value, 1 ) . '%';
-
-			case 'number':
-				return number_format( (int) $value );
-
-			case 'decimal':
-				return number_format( (float) $value, 2 );
-
-			default:
-				return (string) $value;
-		}
+		return Format::value( $value, $format, $currency );
 	}
 
 	/**
