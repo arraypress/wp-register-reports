@@ -338,7 +338,6 @@ button.reports-date-picker-toggle.button {
 
 .reports-components {
     display: flex;
-    flex-direction: column;
     gap: 20px;
 }
 
@@ -572,10 +571,6 @@ button.reports-date-picker-toggle.button {
     font-size: 14px;
     font-weight: 600;
     color: #1d2327;
-}
-
-.reports-table-search input {
-    min-width: 200px;
 }
 
 .reports-table-container {
@@ -897,21 +892,40 @@ button.reports-date-picker-toggle.button {
 
 /* ==========================================================================
    Width Classes
+
+   Named for what the renderer emits. These were `.reports-width-*` while
+   get_width_class() has always returned `reports-component--*`, so a
+   component asking for half a row got a class nothing styled and took the
+   whole row like every other one — the option has never done anything.
+
+   The container is a column flex, so a width alone would not put two
+   components side by side either; it wraps now, and a component with no
+   width stated fills the row as before.
    ========================================================================== */
 
-.reports-width-full {
+.reports-components {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.reports-component--full,
+.reports-component--auto {
     width: 100%;
 }
 
-.reports-width-half {
+.reports-component--half {
     width: calc(50% - 10px);
 }
 
-.reports-width-third {
+.reports-component--third {
     width: calc(33.333% - 14px);
 }
 
-.reports-width-quarter {
+.reports-component--two-thirds {
+    width: calc(66.666% - 7px);
+}
+
+.reports-component--quarter {
     width: calc(25% - 15px);
 }
 
@@ -948,6 +962,71 @@ button.reports-date-picker-toggle.button {
     #screen-meta,
     #screen-meta-links {
         margin-left: -10px;
+    }
+
+    /* Every row that puts things at opposite ends of a line. On a phone
+       there is no line to have two ends of, so they stack and start at the
+       left rather than sitting half off the screen. */
+    .reports-table-header,
+    .reports-table-pagination,
+    .reports-refresh-controls,
+    .reports-filter-fields,
+    .reports-export-progress-info {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .reports-filter-field,
+    .reports-filter-field select,
+    .reports-filter-field input {
+        width: 100%;
+    }
+
+    /* A data table cannot be made narrow enough, so it scrolls inside its own
+       container rather than pushing the page sideways — a horizontally
+       scrolling *page* moves the header and the menu out of reach too. */
+    .reports-table-container,
+    .reports-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .reports-table {
+        min-width: 480px;
+    }
+
+    /* Row actions are a hover affordance, and there is no hover here. */
+    .reports-row-actions-wrap {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    /* The dropdown is positioned against the toggle, which is now the width
+       of the screen; without this it hangs off the right edge. */
+    .reports-date-picker,
+    .reports-date-picker-toggle,
+    button.reports-date-picker-toggle.button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .reports-date-picker-dropdown {
+        left: 0;
+        right: 0;
+        width: auto;
+        min-width: 0;
+    }
+
+    .reports-date-picker-custom-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* Chart padding is most of a phone's width. */
+    .reports-chart-wrapper,
+    .reports-export-card {
+        padding: 12px;
     }
 
 }

@@ -1,0 +1,135 @@
+<?php
+/**
+ * Stylesheet tests.
+ *
+ * @package ArrayPress\RegisterReports
+ */
+
+declare( strict_types=1 );
+
+namespace ArrayPress\RegisterReports\Tests;
+
+use PHPUnit\Framework\TestCase;
+
+/**
+ * CSS has no errors, so a stylesheet is where a mistake lives longest.
+ *
+ * A rule for a class nothing renders does nothing and says nothing; a rule
+ * whose braces do not balance takes every rule after it with it. Neither is
+ * visible until somebody looks at the page.
+ */
+final class StylesheetTest extends TestCase {
+
+	/**
+	 * The stylesheet.
+	 *
+	 * @return string
+	 */
+	private function css(): string {
+		return (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/reports.css' );
+	}
+
+	/**
+	 * Everything this library renders, markup and script alike.
+	 *
+	 * @return string
+	 */
+	private function rendered(): string {
+		$rendered = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/reports.js' );
+
+		$files = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( dirname( __DIR__ ) . '/src' )
+		);
+
+		foreach ( $files as $file ) {
+			if ( $file->isFile() && 'php' === $file->getExtension() ) {
+				$rendered .= (string) file_get_contents( $file->getPathname() );
+			}
+		}
+
+		return $rendered;
+	}
+
+	/**
+	 * Every class styled here is one this library actually renders.
+	 */
+	public function test_no_rule_targets_a_class_nothing_renders(): void {
+		$rendered = $this->rendered();
+		$orphans  = [];
+
+		// Comments out of the way first: one naming a class it explains is
+		// prose, not a rule, and reporting it sends somebody looking for a
+		// selector that is not there.
+		$css = (string) preg_replace( '{/\\*.*?\\*/}s', '', $this->css() );
+
+		preg_match_all( '/\\.(reports-[a-z0-9-]+)/', $css, $matches );
+
+		foreach ( array_unique( $matches[1] ) as $class ) {
+			if ( str_contains( $rendered, $class ) ) {
+				continue;
+			}
+
+			// Half of these are built by interpolation — a tiles grid emits
+			// `reports-tiles-columns-` and the number, a row action emits
+			// `reports-row-action-` and the key — so the whole class name is
+			// nowhere in the source. The prefix is what to look for.
+			$prefix = (string) preg_replace( '/-[a-z0-9]+$/', '-', $class );
+
+			if ( $prefix !== $class && str_contains( $rendered, $prefix ) ) {
+				continue;
+			}
+
+			$orphans[] = $class;
+		}
+
+		sort( $orphans );
+
+		$this->assertSame(
+			[],
+			$orphans,
+			"Styled, but nothing renders them:\n  " . implode( "\n  ", $orphans )
+		);
+	}
+
+	/**
+	 * Every brace is closed.
+	 */
+	public function test_the_braces_balance(): void {
+		$css = $this->css();
+
+		$this->assertSame( substr_count( $css, '{' ), substr_count( $css, '}' ) );
+	}
+
+	/**
+	 * No comment sits between a comma and an opening brace.
+	 *
+	 * That merges two rules: the selectors before it keep matching but take
+	 * the next rule's declarations.
+	 */
+	public function test_no_comment_sits_inside_a_selector_list(): void {
+		$merged = [];
+
+		preg_match_all( '/(?:^|\\})([^{}]*)\\{/', $this->css(), $rules );
+
+		foreach ( $rules[1] as $selector ) {
+			$before = explode( '/*', $selector )[0];
+
+			if ( str_contains( $selector, '/*' ) && str_contains( $before, ',' ) ) {
+				$merged[] = trim( explode( "\n", trim( $before ) )[0] );
+			}
+		}
+
+		$this->assertSame( [], $merged, implode( ', ', $merged ) );
+	}
+
+	/**
+	 * The library styles for WordPress's own breakpoint.
+	 *
+	 * 782px is where core stacks the form table and grows every control to a
+	 * touch target. A library that renders its own layout has to meet it
+	 * there or the two disagree halfway down the page.
+	 */
+	public function test_there_are_styles_for_a_narrow_screen(): void {
+		$this->assertStringContainsString( '@media screen and (max-width: 782px)', $this->css() );
+	}
+}
