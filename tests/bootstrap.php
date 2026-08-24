@@ -82,6 +82,44 @@ if ( ! function_exists( 'wp_generate_password' ) ) {
 	}
 }
 
+/*
+ * What date utils reaches for and nothing else declares. Resolving a date
+ * range is on the way in to every REST call, so without these the endpoints
+ * are untestable rather than one date assertion being wrong.
+ *
+ * Fixed to a known moment rather than to now: a suite whose answers depend on
+ * the day it runs is a suite that fails on the first of the month.
+ */
+if ( ! function_exists( 'current_time' ) ) {
+	function current_time( $type = 'mysql', $gmt = 0 ) {
+		return 'timestamp' === $type ? 1756080000 : gmdate( 'Y-m-d H:i:s', 1756080000 );
+	}
+}
+
+if ( ! function_exists( 'get_gmt_from_date' ) ) {
+	function get_gmt_from_date( $date, $format = 'Y-m-d H:i:s' ) {
+		return gmdate( $format, strtotime( (string) $date ) ?: 1756080000 );
+	}
+}
+
+if ( ! function_exists( 'get_date_from_gmt' ) ) {
+	function get_date_from_gmt( $date, $format = 'Y-m-d H:i:s' ) {
+		return gmdate( $format, strtotime( (string) $date ) ?: 1756080000 );
+	}
+}
+
+if ( ! function_exists( 'wp_timezone' ) ) {
+	function wp_timezone() {
+		return new DateTimeZone( 'UTC' );
+	}
+}
+
+if ( ! function_exists( 'wp_timezone_string' ) ) {
+	function wp_timezone_string() {
+		return 'UTC';
+	}
+}
+
 if ( ! function_exists( 'format_currency' ) ) {
 	function format_currency( $cents, $currency = 'USD' ) {
 		return sprintf( '%s%s', 'USD' === $currency ? '$' : $currency . ' ', number_format( $cents / 100, 2 ) );
@@ -175,6 +213,38 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		 */
 		public function get_param( string $key ) {
 			return $this->params[ $key ] ?? null;
+		}
+
+		/**
+		 * @return array<string, mixed>
+		 */
+		public function get_params(): array {
+			return $this->params;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	class WP_REST_Response {
+
+		/**
+		 * @var mixed
+		 */
+		private $data;
+
+		/**
+		 * @param mixed $data   The payload.
+		 * @param int   $status HTTP status.
+		 */
+		public function __construct( $data = null, int $status = 200 ) {
+			$this->data = $data;
+		}
+
+		/**
+		 * @return mixed
+		 */
+		public function get_data() {
+			return $this->data;
 		}
 	}
 }

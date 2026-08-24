@@ -91,6 +91,12 @@ trait AssetManager {
 			'restNonce'     => wp_create_nonce( 'wp_rest' ),
 			'reportId'      => $this->id,
 			'dateRange'     => $this->date_range,
+
+			// The preset a request with no date_preset means. The script had
+			// its own idea of this and so did PHP, so a report configuring a
+			// different default got it on the first render and lost it on the
+			// first refresh.
+			'defaultPreset' => (string) ( $this->config['default_preset'] ?? 'this_month' ),
 			'i18n'          => [
 				// General
 				'loading'        => __( 'Loading...', 'arraypress' ),

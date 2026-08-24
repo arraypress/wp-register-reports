@@ -158,7 +158,12 @@
          * @returns {string}
          */
         i18n: function (key, ...args) {
-            let str = cfg.i18n[key] || key;
+            // The config resolution ends in `|| {}` for the case where no
+            // registry entry matches the handle — and that empty object has
+            // no i18n, so every call here was a TypeError in exactly the
+            // situation the fallback exists to survive. The key itself is a
+            // reasonable last resort: an untranslated word beats a dead page.
+            let str = (cfg.i18n || {})[key] || key;
 
             if (args.length === 0) {
                 return str;
@@ -508,24 +513,31 @@
                 return;
             }
 
-            // Build rows
-            data.rows.forEach((row) => {
+            // Build rows.
+            //
+            // The cells arrive formatted and sanitized: the server runs them
+            // through the same formatter that rendered the page and the same
+            // wp_kses_post() that wrote it. Formatting them again here is how
+            // the refresh came to print dollars on a site set to euros, and
+            // writing them with .html() when nothing had sanitized them is
+            // how a script tag that was inert on load ran on the first
+            // refresh.
+            data.rows.forEach((row, rowIndex) => {
                 const $tr = $('<tr>');
 
-                // If we have column config, use it for ordering and formatting
+                // The unformatted values, for the {placeholder} substitutions
+                // in a row action's URL — an id formatted for display is
+                // 1,204 and links to nothing.
+                const raw = (data.raw && data.raw[rowIndex]) || row;
+
+                // If we have column config, use it for ordering
                 if (columns.length > 0) {
                     columns.forEach((col) => {
                         const columnKey = col.key || col;
-                        let cellValue = row[columnKey] !== undefined ? row[columnKey] : '';
-
-                        // Apply format if specified
-                        if (col.format) {
-                            cellValue = this.formatCellValue(cellValue, col.format);
-                        }
 
                         const $td = $('<td>')
                             .attr('data-column', columnKey)
-                            .html(cellValue);
+                            .html(row[columnKey] !== undefined ? row[columnKey] : '');
                         $tr.append($td);
                     });
                 } else {
@@ -550,9 +562,9 @@
 
                         let url = action.url || '#';
                         // Replace placeholders in URL
-                        Object.keys(row).forEach((key) => {
-                            if (typeof row[key] === 'string' || typeof row[key] === 'number') {
-                                url = url.replace('{' + key + '}', encodeURIComponent(row[key]));
+                        Object.keys(raw).forEach((key) => {
+                            if (typeof raw[key] === 'string' || typeof raw[key] === 'number') {
+                                url = url.replace('{' + key + '}', encodeURIComponent(raw[key]));
                             }
                         });
 
@@ -590,81 +602,6 @@
         },
 
         /**
-         * Format a cell value based on format type
-         *
-         * @param {*}      value  - The value to format
-         * @param {string} format - Format type
-         * @returns {string}
-         */
-        formatCellValue: function (value, format) {
-            switch (format) {
-                case 'number':
-                    return this.formatNumber(value);
-                case 'currency':
-                    return this.formatCurrency(value);
-                case 'percentage':
-                    return parseFloat(value).toFixed(1) + '%';
-                case 'date':
-                    return this.formatDate(value);
-                case 'datetime':
-                    return this.formatDateTime(value);
-                default:
-                    return value;
-            }
-        },
-
-        /**
-         * Format a number with locale-specific separators
-         *
-         * @param {number|string} value - Value to format
-         * @returns {string}
-         */
-        formatNumber: function (value) {
-            const num = parseFloat(value);
-            if (isNaN(num)) return value;
-            return num.toLocaleString();
-        },
-
-        /**
-         * Format a currency value (basic implementation)
-         *
-         * @param {number|string} value - Value to format (in cents or dollars)
-         * @returns {string}
-         */
-        formatCurrency: function (value) {
-            const num = parseFloat(value);
-            if (isNaN(num)) return value;
-            // Assuming value is in major currency units
-            return '$' + num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        },
-
-        /**
-         * Format a date value
-         *
-         * @param {string} value - Date string
-         * @returns {string}
-         */
-        formatDate: function (value) {
-            if (!value) return '';
-            const date = new Date(value);
-            if (isNaN(date.getTime())) return value;
-            return date.toLocaleDateString();
-        },
-
-        /**
-         * Format a datetime value
-         *
-         * @param {string} value - Datetime string
-         * @returns {string}
-         */
-        formatDateTime: function (value) {
-            if (!value) return '';
-            const date = new Date(value);
-            if (isNaN(date.getTime())) return value;
-            return date.toLocaleString();
-        },
-
-        /**
          * Escape HTML entities
          *
          * @param {string} str - String to escape
@@ -685,7 +622,12 @@
          */
         escapeJs: function (str) {
             if (typeof str !== 'string') return str;
-            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+            // Backslash first, or the escapes added below get escaped again.
+            // PHP's esc_js() runs addslashes(), which covers all three; this
+            // covered two, so a value ending in a backslash closed the string
+            // it was supposed to be inside and everything after it was code.
+            return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
         },
 
         /* ========================================================================
@@ -711,7 +653,7 @@
         getCurrentDatePreset: function () {
             const url = new URL(window.location.href);
 
-            return url.searchParams.get('date_preset') || 'this_month';
+            return url.searchParams.get('date_preset') || cfg.defaultPreset || 'this_month';
         },
 
         /**

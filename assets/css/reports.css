@@ -21,16 +21,6 @@
 }
 
 /* ==========================================================================
-   Filter Bar (inside header)
-   ========================================================================== */
-
-.reports-filter-bar {
-    padding: 12px 20px;
-    background: #f6f7f7;
-    border-top: 1px solid #dcdcde;
-}
-
-/* ==========================================================================
    Notices Container
    ========================================================================== */
 
@@ -42,22 +32,6 @@
 .reports-notices:empty {
     display: none;
     margin: 0;
-}
-
-/* ==========================================================================
-   General Wrapper (updated)
-   ========================================================================== */
-
-.reports-wrap {
-    margin-right: 20px;
-}
-
-.reports-wrap * {
-    box-sizing: border-box;
-}
-
-.reports .metabox-prefs {
-    margin: 0 0 0 -20px !important;
 }
 
 /* ==========================================================================
@@ -338,6 +312,8 @@ button.reports-date-picker-toggle.button {
 
 .reports-components {
     display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 20px;
 }
 
@@ -362,6 +338,13 @@ button.reports-date-picker-toggle.button {
 .reports-tiles-grid {
     display: grid;
     gap: 16px;
+
+    /* The row, not a column of it. This is a flex child of
+       .reports-components, and a flex child is sized by its content — so the
+       grid measured itself against a width it had not been given, resolved
+       minmax(220px, 1fr) to one 220px column, and stacked every tile down the
+       left-hand side of an empty screen. */
+    width: 100%;
 
     /* A grid with no template is one column, and one of the two places that
        builds this markup adds no reports-tiles-columns-N class — so a set of
@@ -902,11 +885,6 @@ button.reports-date-picker-toggle.button {
    components side by side either; it wraps now, and a component with no
    width stated fills the row as before.
    ========================================================================== */
-
-.reports-components {
-    flex-direction: row;
-    flex-wrap: wrap;
-}
 
 .reports-component--full,
 .reports-component--auto {

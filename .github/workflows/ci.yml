@@ -33,6 +33,12 @@ jobs:
       - name: Lint
         run: find src tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
 
+      - name: JavaScript tests
+        # The PHP suite renders the page and stops there, so everything the
+        # page does after it loads — refresh, date picker, export polling,
+        # table paging — is invisible to it.
+        run: composer test:js
+
       - name: Coding standards
         run: composer lint
 

@@ -164,9 +164,17 @@ trait ComponentData {
 						break;
 
 					case 'table':
+						$rows = (array) ( $raw_data['rows'] ?? $raw_data ?? [] );
+
 						$components_data[ $component_id ] = [
 							'type' => 'table',
-							'rows' => $raw_data['rows'] ?? $raw_data ?? [],
+							'rows' => self::format_rows( $rows, $component ),
+
+							// The values as the callback gave them, for the
+							// {placeholder} substitutions in a row action's
+							// URL. An id formatted for display is 1,204 and
+							// links to nothing.
+							'raw'  => self::scalar_rows( $rows ),
 						];
 						break;
 
@@ -256,5 +264,87 @@ trait ComponentData {
 	 */
 	private static function format_value_for_api( $value, string $format, string $currency = 'USD' ): string {
 		return Format::value( $value, $format, $currency );
+	}
+
+	/**
+	 * A table's rows with only their scalar values kept.
+	 *
+	 * What a row action's URL substitutes its {placeholders} from. Anything
+	 * that is not a number, a string or a boolean cannot go in a URL and has
+	 * no business being sent to the browser twice.
+	 *
+	 * @param array<int, mixed> $rows Rows as the callback returned them.
+	 *
+	 * @return array<int, array<string, scalar>>
+	 */
+	private static function scalar_rows( array $rows ): array {
+		$scalar = [];
+
+		foreach ( $rows as $row ) {
+			$scalar[] = array_filter( (array) $row, 'is_scalar' );
+		}
+
+		return $scalar;
+	}
+
+	/**
+	 * A table's rows, formatted and sanitized the way the page renders them.
+	 *
+	 * The refresh used to hand raw values to the browser and let the script
+	 * format them, which meant the same table was formatted by two different
+	 * pieces of code that did not agree. The script printed dollars on a site
+	 * configured for euros, used the browser's locale for separators and the
+	 * browser's date format for dates, and — because it wrote the cells with
+	 * .html() while PHP writes them through wp_kses_post() — a value holding
+	 * a script tag was inert on load and ran on the first auto-refresh.
+	 *
+	 * Formatting here fixes all four at once: there is one formatter, it is
+	 * the one that already renders the page, and the payload arrives ready to
+	 * put on screen.
+	 *
+	 * @param array<int, mixed>    $rows      Rows as the callback returned them.
+	 * @param array<string, mixed> $component The component's configuration.
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private static function format_rows( array $rows, array $component ): array {
+		$currency = (string) ( $component['currency'] ?? 'USD' );
+		$formats  = [];
+
+		// Columns are either a list of names or a map of name => label, and a
+		// label is either a string or an array carrying a format. All three
+		// shapes are configuration a consumer already writes, so all three
+		// are read here rather than one being declared correct.
+		foreach ( (array) ( $component['columns'] ?? [] ) as $key => $column ) {
+			$name = is_string( $key ) ? $key : (string) $column;
+
+			$formats[ $name ] = is_array( $column ) ? (string) ( $column['format'] ?? '' ) : '';
+		}
+
+		$formatted = [];
+
+		foreach ( $rows as $row ) {
+			$cells = [];
+
+			foreach ( (array) $row as $key => $value ) {
+				// A cell has to end up as a string in a table, and there is
+				// no honest way to turn an array into one — casting it warns
+				// and prints the word Array, which is worse than an empty
+				// cell because it looks like data.
+				if ( ! is_scalar( $value ) && null !== $value ) {
+					continue;
+				}
+
+				$format = $formats[ $key ] ?? '';
+
+				$cells[ $key ] = wp_kses_post(
+					'' === $format ? (string) $value : Format::value( $value, $format, $currency )
+				);
+			}
+
+			$formatted[] = $cells;
+		}
+
+		return $formatted;
 	}
 }

@@ -123,6 +123,62 @@ final class StylesheetTest extends TestCase {
 	}
 
 	/**
+	 * The tile grid takes the whole row it is in.
+	 *
+	 * `.reports-components` is a wrapping flex row and the grid is one of its
+	 * children, so it is sized by its content unless told otherwise — which
+	 * it was not. `minmax(220px, 1fr)` then resolved against a width the grid
+	 * had not been given, came out as a single 220px column, and every tile
+	 * stacked down the left-hand side of an empty screen. The report looked
+	 * broken and every rule involved was correct.
+	 */
+	public function test_the_tile_grid_fills_its_row(): void {
+		preg_match( '/\.reports-tiles-grid\s*\{([^}]*)\}/', $this->css(), $rule );
+
+		$this->assertNotEmpty( $rule, 'The tile grid has no rule.' );
+		$this->assertStringContainsString( 'display: grid', $rule[1] );
+		$this->assertMatchesRegularExpression(
+			'/(width:\s*100%|flex:\s*[^;]*100%)/',
+			$rule[1],
+			'The grid is a flex child with no width, so it will collapse to one column.'
+		);
+	}
+
+	/**
+	 * A selector is not declared in two places.
+	 *
+	 * `.reports-components` was declared twice, five hundred lines apart —
+	 * `display: flex` in one and `flex-direction` in the other — so reading
+	 * either one told you half of what the container does.
+	 */
+	public function test_a_selector_is_not_declared_in_two_places(): void {
+		// Top-level rules only: the same selector inside a media query is the
+		// point of media queries.
+		$css = (string) preg_replace( '/@media[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/s', '', $this->css() );
+
+		preg_match_all( '/(?:^|\})\s*([^{}@\/]+?)\s*\{/m', $css, $found );
+
+		$seen  = [];
+		$twice = [];
+
+		foreach ( $found[1] as $selector ) {
+			$selector = trim( (string) preg_replace( '/\s+/', ' ', $selector ) );
+
+			if ( '' === $selector || str_starts_with( $selector, '*' ) ) {
+				continue;
+			}
+
+			if ( isset( $seen[ $selector ] ) ) {
+				$twice[] = $selector;
+			}
+
+			$seen[ $selector ] = true;
+		}
+
+		$this->assertSame( [], array_values( array_unique( $twice ) ) );
+	}
+
+	/**
 	 * The library styles for WordPress's own breakpoint.
 	 *
 	 * 782px is where core stacks the form table and grows every control to a
