@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\FieldKit\Context\ArrayContext;
+use ArrayPress\FieldKit\FieldSet;
 use ArrayPress\FieldKit\Support\PageHeader;
 
 /**
@@ -194,11 +196,10 @@ trait PageRenderer {
         }
 
         echo '<div class="reports-controls-bar">';
-        echo '<div class="reports-controls-bar-start">';
 
-        if ( $date ) {
-            $this->render_date_picker();
-        }
+        // Filters on the left: they are the part with a variable number of
+        // controls, and a ragged right edge reads better than a ragged left.
+        echo '<div class="reports-controls-bar-start">';
 
         if ( [] !== $filters ) {
             $this->render_filter_bar( $filters );
@@ -206,8 +207,18 @@ trait PageRenderer {
 
         echo '</div>';
 
+        // The date range and the refresh together on the right. They are the
+        // two controls that are always there and never change shape, so they
+        // are the fixed point the rest of the bar is read against.
+        echo '<div class="reports-controls-bar-end">';
+
+        if ( $date ) {
+            $this->render_date_picker();
+        }
+
         $this->render_refresh_controls();
 
+        echo '</div>';
         echo '</div>';
     }
 
@@ -291,49 +302,65 @@ trait PageRenderer {
     }
 
     /**
-     * Render a single filter field.
+     * One filter control.
      *
-     * @param string $filter_key Filter key.
-     * @param array  $filter     Filter configuration.
+     * Drawn by the field kit rather than by three branches of hand-rolled
+     * markup here. A select becomes the same searchable combobox the
+     * settings screens use, which is what a filter with four hundred
+     * products in it needs and what a plain dropdown cannot be — and every
+     * type the kit gains, this gains with it.
+     *
+     * The label is present and hidden. A bar with a word above every control
+     * is twice as tall as the controls in it and reads as a form; a control
+     * with no accessible name is one that cannot be identified by anyone
+     * using a screen reader. Hidden visually, announced properly.
+     *
+     * @param string               $filter_key The filter's key.
+     * @param array<string, mixed> $filter     Its configuration.
      *
      * @return void
      */
     protected function render_filter_field( string $filter_key, array $filter ): void {
-        $type          = $filter['type'] ?? 'select';
-        $label         = $filter['label'] ?? ucfirst( $filter_key );
-        $param_name    = 'filter_' . $filter_key;
-        $current_value = isset( $_GET[ $param_name ] ) ? sanitize_text_field( wp_unslash( $_GET[ $param_name ] ) ) : ( $filter['default'] ?? '' );
+        $name  = 'filter_' . $filter_key;
+        $type  = (string) ( $filter['type'] ?? 'select' );
+        $label = (string) ( $filter['label'] ?? ucfirst( $filter_key ) );
 
-        ?>
-        <div class="reports-filter-field reports-filter-<?php echo esc_attr( $type ); ?>">
-            <label for="<?php echo esc_attr( $param_name ); ?>"><?php echo esc_html( $label ); ?></label>
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $value = isset( $_GET[ $name ] )
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            ? sanitize_text_field( wp_unslash( $_GET[ $name ] ) )
+            : (string) ( $filter['default'] ?? '' );
 
-            <?php if ( $type === 'select' ) : ?>
-                <select name="<?php echo esc_attr( $param_name ); ?>" id="<?php echo esc_attr( $param_name ); ?>">
-                    <?php foreach ( $filter['options'] ?? [] as $value => $option_label ) : ?>
-                        <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current_value, $value ); ?>>
-                            <?php echo esc_html( $option_label ); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+        $config = array_merge(
+            $filter,
+            [
+                'label' => $label,
 
-            <?php elseif ( $type === 'checkbox' ) : ?>
-                <input type="checkbox"
-                        name="<?php echo esc_attr( $param_name ); ?>"
-                        id="<?php echo esc_attr( $param_name ); ?>"
-                        value="1"
-                        <?php checked( $current_value, '1' ); ?>>
+                // A select filters a list somebody has to find something in,
+                // which is the combobox's whole job.
+                'type'  => 'select' === $type ? 'enhanced_select' : $type,
+            ]
+        );
 
-            <?php elseif ( $type === 'text' ) : ?>
-                <input type="text"
-                        name="<?php echo esc_attr( $param_name ); ?>"
-                        id="<?php echo esc_attr( $param_name ); ?>"
-                        value="<?php echo esc_attr( $current_value ); ?>"
-                        placeholder="<?php echo esc_attr( $filter['placeholder'] ?? '' ); ?>">
+        // An empty "All countries" entry is the kit's placeholder, not one of
+        // the options — offered as an option it appears twice, once selected.
+        if ( isset( $config['options'][''] ) ) {
+            $config['placeholder'] = $config['placeholder'] ?? $config['options'][''];
 
-            <?php endif; ?>
-        </div>
-        <?php
+            unset( $config['options'][''] );
+        }
+
+        $set = new FieldSet( [ $name => $config ], new ArrayContext( [ $name => $value ] ), '' );
+
+        printf(
+            '<div class="reports-filter-field reports-filter-%s">' .
+            '<label for="%s" class="screen-reader-text">%s</label>%s</div>',
+            esc_attr( $type ),
+            esc_attr( $name ),
+            esc_html( $label ),
+            // The kit escapes as it builds.
+            $set->render_field( $set->field( $name ), '', false ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        );
     }
 
     /**

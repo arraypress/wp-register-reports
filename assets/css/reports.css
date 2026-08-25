@@ -74,11 +74,17 @@
     border-bottom: 1px solid #c3c4c7;
 }
 
-.reports-controls-bar-start {
+.reports-controls-bar-start,
+.reports-controls-bar-end {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+}
+
+/* The right-hand pair keeps its shape when the filters wrap past it. */
+.reports-controls-bar-end {
+    margin-left: auto;
 }
 
 /* Inside the bar the filter form is a row among others, not a bar of its
@@ -113,25 +119,22 @@
     flex-wrap: wrap;
 }
 
+/* One row. These used to stack a small-caps label above each control, which
+   made the bar twice as tall as the things in it and read as a form rather
+   than a toolbar. The label is still there — screen-reader-text — because a
+   control with no accessible name cannot be identified. */
 .reports-filter-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.reports-filter-field label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #646970;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .reports-filter-field select,
 .reports-filter-field input[type="text"] {
     min-width: 150px;
-    height: 32px;
     max-width: none;
+    height: 30px;
+    margin: 0;
 }
 
 .reports-filter-field.reports-filter-checkbox {
@@ -1301,12 +1304,6 @@ button.reports-date-picker-toggle.button {
     margin: 0;
 }
 
-.reports-controls-bar .reports-filter-field label {
-    color: #50575e;
-    font-size: 13px;
-    white-space: nowrap;
-}
-
 .reports-controls-bar .reports-filter-field select,
 .reports-controls-bar .reports-filter-field input[type="text"] {
     height: 30px;
@@ -1318,4 +1315,16 @@ button.reports-date-picker-toggle.button {
 /* A checkbox has no business being 30px tall. */
 .reports-controls-bar .reports-filter-field input[type="checkbox"] {
     margin: 0;
+}
+
+/* The kit draws each control in a field wrapper meant for a form table. In
+   the bar it is one item in a row, so it carries no width and no margin of
+   its own. */
+.reports-filter-field .field-kit__field {
+    margin: 0;
+}
+
+.reports-filter-field .field-kit__combobox,
+.reports-filter-field .field-kit__select {
+    min-width: 11rem;
 }

@@ -125,4 +125,104 @@ final class FilterTest extends TestCase {
 
 		$this->assertSame( [], $report->filters_for( 'sales' ) );
 	}
+	/**
+	 * Render one filter control and hand back what it printed.
+	 *
+	 * @param string               $key    Filter key.
+	 * @param array<string, mixed> $filter Its configuration.
+	 *
+	 * @return string
+	 */
+	private function control( string $key, array $filter ): string {
+		$report = new class( 'takings', [] ) extends Reports {
+
+			/**
+			 * @param string $key    Filter key.
+			 * @param array  $filter Its configuration.
+			 *
+			 * @return string
+			 */
+			public function draw( string $key, array $filter ): string {
+				ob_start();
+
+				try {
+					$this->render_filter_field( $key, $filter );
+				} finally {
+					return (string) ob_get_clean();
+				}
+			}
+		};
+
+		return $report->draw( $key, $filter );
+	}
+
+	/**
+	 * A select filter is the searchable one, not a plain dropdown.
+	 *
+	 * A filter exists to find something in a list, which is the combobox's
+	 * whole job — and a product filter with four hundred entries in it is
+	 * unusable as a native select. The kit's class is what its script looks
+	 * for, so this is the difference between a combobox and a promise.
+	 */
+	public function test_a_select_filter_is_searchable(): void {
+		$html = $this->control( 'country', [ 'type' => 'select', 'label' => 'Country', 'options' => [ 'gb' => 'UK' ] ] );
+
+		$this->assertStringContainsString( 'field-kit__select--enhanced', $html );
+	}
+
+	/**
+	 * Its name is the one the query string and the endpoint agree on.
+	 *
+	 * The kit can prefix names itself, and asking it to would have produced
+	 * `filter[country]` — which every reader of these values, on both sides,
+	 * would have stopped recognising.
+	 */
+	public function test_a_filter_keeps_its_query_name(): void {
+		$html = $this->control( 'country', [ 'type' => 'select', 'options' => [ 'gb' => 'UK' ] ] );
+
+		$this->assertStringContainsString( 'name="filter_country"', $html );
+	}
+
+	/**
+	 * The label is there, and not visible.
+	 *
+	 * A word above every control makes the bar twice as tall as the controls
+	 * in it. No label at all makes the control unidentifiable to anyone using
+	 * a screen reader. It is hidden, not removed.
+	 */
+	public function test_a_filter_is_labelled_without_showing_one(): void {
+		$html = $this->control( 'country', [ 'type' => 'select', 'label' => 'Country', 'options' => [ 'gb' => 'UK' ] ] );
+
+		$this->assertMatchesRegularExpression( '/<label[^>]*class="screen-reader-text"[^>]*>Country<\/label>/', $html );
+		$this->assertStringContainsString( 'for="filter_country"', $html );
+	}
+
+	/**
+	 * An "all" entry becomes the placeholder rather than a second option.
+	 *
+	 * The kit renders a placeholder option of its own, so an empty-keyed
+	 * option offered alongside it appears twice — once as the placeholder and
+	 * once selected below it.
+	 */
+	public function test_an_all_option_is_the_placeholder(): void {
+		$html = $this->control(
+			'country',
+			[ 'type' => 'select', 'options' => [ '' => 'All countries', 'gb' => 'UK' ] ]
+		);
+
+		$this->assertSame( 1, substr_count( $html, 'All countries</option>' ) );
+		$this->assertStringContainsString( 'data-placeholder="All countries"', $html );
+	}
+
+	/**
+	 * A value in the query string is the one selected.
+	 */
+	public function test_the_current_value_is_selected(): void {
+		$_GET['filter_country'] = 'gb';
+
+		$html = $this->control( 'country', [ 'type' => 'select', 'options' => [ 'gb' => 'UK', 'us' => 'US' ] ] );
+
+		$this->assertMatchesRegularExpression( '/value="gb"[^>]*selected/', $html );
+	}
+
 }
