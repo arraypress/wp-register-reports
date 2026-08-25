@@ -32,7 +32,7 @@ use WP_REST_Response;
  */
 trait ComponentData {
 
-/**
+	/**
 	 * Get component data.
 	 */
 	public static function get_component_data( WP_REST_Request $request ) {
@@ -74,7 +74,7 @@ trait ComponentData {
 		}
 	}
 
-/**
+	/**
 	 * Get all components data for refresh.
 	 *
 	 * Returns data in a format optimized for JS refresh.
@@ -249,7 +249,7 @@ trait ComponentData {
 		] );
 	}
 
-/**
+	/**
 	 * Format a value for an API response.
 	 *
 	 * The same way the page formats it. These were two implementations and

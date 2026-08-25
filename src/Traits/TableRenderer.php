@@ -22,7 +22,7 @@ namespace ArrayPress\RegisterReports\Traits;
  */
 trait TableRenderer {
 
-/**
+    /**
      * Render a table component.
      *
      * @param string $component_id Component ID.
@@ -172,7 +172,7 @@ trait TableRenderer {
         <?php
     }
 
-/**
+    /**
      * Render row actions for a table row.
      *
      * @param array $actions Action definitions.

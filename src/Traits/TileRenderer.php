@@ -21,7 +21,7 @@ namespace ArrayPress\RegisterReports\Traits;
  */
 trait TileRenderer {
 
-/**
+    /**
      * Render a grid of tiles.
      *
      * @param array $tiles Tile components.
@@ -38,7 +38,7 @@ trait TileRenderer {
         echo '</div>';
     }
 
-/**
+    /**
      * Render a tile component.
      *
      * @param string $component_id Component ID.
@@ -132,7 +132,7 @@ trait TileRenderer {
         <?php
     }
 
-/**
+    /**
      * Render a tiles group component.
      *
      * @param string $component_id Component ID.

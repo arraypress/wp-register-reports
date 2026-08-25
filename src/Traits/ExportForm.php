@@ -22,7 +22,7 @@ namespace ArrayPress\RegisterReports\Traits;
  */
 trait ExportForm {
 
-/**
+	/**
 	 * Render exports section.
 	 *
 	 * @param array $exports Exports for current tab.
@@ -44,7 +44,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render a single export card.
 	 *
 	 * @param string $export_id Export identifier.
@@ -98,7 +98,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render export filters.
 	 *
 	 * @param string $export_id Export identifier.
@@ -156,7 +156,7 @@ trait ExportForm {
 		}
 	}
 
-/**
+	/**
 	 * Render a select filter.
 	 *
 	 * @param string $field_id   Field ID.
@@ -184,7 +184,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render a multiselect filter.
 	 *
 	 * @param string $field_id   Field ID.
@@ -210,7 +210,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render a date filter.
 	 *
 	 * @param string $field_id   Field ID.
@@ -230,7 +230,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render a date range filter.
 	 *
 	 * @param string $field_id   Field ID.
@@ -261,7 +261,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render checkbox filters.
 	 *
 	 * @param string $field_id   Field ID.
@@ -289,7 +289,7 @@ trait ExportForm {
 		<?php
 	}
 
-/**
+	/**
 	 * Render a text filter.
 	 *
 	 * @param string $field_id   Field ID.

@@ -25,7 +25,7 @@ use WP_REST_Server;
  */
 trait Routes {
 
-/**
+	/**
 	 * Register REST API endpoints.
 	 */
 	public static function register(): void {
@@ -38,7 +38,7 @@ trait Routes {
 		self::$registered = true;
 	}
 
-/**
+	/**
 	 * Register REST routes.
 	 */
 	public static function register_routes(): void {
@@ -93,7 +93,7 @@ trait Routes {
 		] );
 	}
 
-/**
+	/**
 	 * Get component endpoint args.
 	 */
 	private static function get_component_args(): array {
@@ -123,7 +123,7 @@ trait Routes {
 		];
 	}
 
-/**
+	/**
 	 * Get tab endpoint args.
 	 */
 	private static function get_tab_args(): array {
@@ -153,7 +153,7 @@ trait Routes {
 		];
 	}
 
-/**
+	/**
 	 * Get export start endpoint args.
 	 */
 	private static function get_export_start_args(): array {
@@ -187,7 +187,7 @@ trait Routes {
 		];
 	}
 
-/**
+	/**
 	 * Get export batch endpoint args.
 	 */
 	private static function get_export_batch_args(): array {

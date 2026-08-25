@@ -713,6 +713,13 @@ button.reports-date-picker-toggle.button {
     border: 1px solid #c3c4c7;
     border-radius: 4px;
     padding: 20px;
+
+    /* The gap on .reports-components separates the components from each
+       other, and this is not one of them — it is a sibling rendered before
+       the container. So the export cards sat flush against the top of the
+       first table, one border thick, reading as a single panel with a
+       horizontal rule through it. */
+    margin-bottom: 20px;
 }
 
 .reports-exports-section-title {

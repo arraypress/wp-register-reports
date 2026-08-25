@@ -70,7 +70,7 @@ trait ComponentRenderer {
         echo '</div>';
     }
 
-/**
+    /**
      * Render a single component.
      *
      * @param string $component_id Component ID.
@@ -125,7 +125,7 @@ trait ComponentRenderer {
         }
     }
 
-/**
+    /**
      * Render an HTML component.
      *
      * @param string $component_id Component ID.

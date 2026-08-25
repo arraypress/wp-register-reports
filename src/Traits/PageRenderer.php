@@ -25,7 +25,7 @@ use ArrayPress\FieldKit\Support\PageHeader;
  */
 trait PageRenderer {
 
-/**
+    /**
      * Render the reports page.
      *
      * @return void
@@ -59,7 +59,7 @@ trait PageRenderer {
         <?php
     }
 
-/**
+    /**
      * Render the modern header with optional logo, tabs, and date picker.
      *
      * Rendered outside .wrap to match RegisterSettingFields/EDD pattern.
@@ -117,7 +117,7 @@ trait PageRenderer {
         }
     }
 
-/**
+    /**
      * The tabs, in the shape the kit's header wants.
      *
      * @return array<string, array{label: string, url: string, icon: string}>
@@ -139,7 +139,7 @@ trait PageRenderer {
         return $tabs;
     }
 
-/**
+    /**
      * The refresh control and the date range, for the header's actions slot.
      *
      * @return void
@@ -179,7 +179,7 @@ trait PageRenderer {
         }
     }
 
-/**
+    /**
      * Render the filter bar for a tab.
      *
      * @param array $filters Filter configuration.
@@ -220,7 +220,7 @@ trait PageRenderer {
         <?php
     }
 
-/**
+    /**
      * Render a single filter field.
      *
      * @param string $filter_key Filter key.
@@ -266,7 +266,7 @@ trait PageRenderer {
         <?php
     }
 
-/**
+    /**
      * Render content for a specific tab.
      *
      * @param string $tab Tab key.
@@ -301,7 +301,7 @@ trait PageRenderer {
         }
     }
 
-/**
+    /**
      * Render empty state.
      *
      * @return void

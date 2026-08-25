@@ -32,7 +32,7 @@ use WP_REST_Server;
  */
 trait ExportEndpoints {
 
-/**
+	/**
 	 * Start export process.
 	 */
 	public static function start_export( WP_REST_Request $request ) {
@@ -106,7 +106,7 @@ trait ExportEndpoints {
 		] );
 	}
 
-/**
+	/**
 	 * Process export batch.
 	 */
 	public static function process_export_batch( WP_REST_Request $request ) {
@@ -170,7 +170,7 @@ trait ExportEndpoints {
 		return new WP_REST_Response( $response );
 	}
 
-/**
+	/**
 	 * Stream a finished export file.
 	 *
 	 * @param WP_REST_Request $request The REST request.

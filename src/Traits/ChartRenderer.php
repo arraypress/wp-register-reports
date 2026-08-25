@@ -22,7 +22,7 @@ namespace ArrayPress\RegisterReports\Traits;
  */
 trait ChartRenderer {
 
-/**
+    /**
      * Render a chart component.
      *
      * @param string $component_id Component ID.
@@ -87,7 +87,7 @@ trait ChartRenderer {
         <?php
     }
 
-/**
+    /**
      * Get Chart.js options based on component configuration.
      *
      * @param array  $component  Component configuration.

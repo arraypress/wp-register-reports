@@ -179,6 +179,21 @@ final class StylesheetTest extends TestCase {
 	}
 
 	/**
+	 * The exports panel is separated from what follows it.
+	 *
+	 * It is rendered before `.reports-components` rather than inside it, so
+	 * the gap that separates the components from each other does nothing for
+	 * it — the export cards sat flush against the top of the first table, one
+	 * border thick, reading as a single panel with a rule through it.
+	 */
+	public function test_the_exports_panel_has_room_beneath_it(): void {
+		preg_match( '/\.reports-exports-section\s*\{([^}]*)\}/', $this->css(), $rule );
+
+		$this->assertNotEmpty( $rule, 'The exports panel has no rule.' );
+		$this->assertMatchesRegularExpression( '/margin-bottom:\s*[1-9]/', $rule[1] );
+	}
+
+	/**
 	 * The library styles for WordPress's own breakpoint.
 	 *
 	 * 782px is where core stacks the form table and grows every control to a

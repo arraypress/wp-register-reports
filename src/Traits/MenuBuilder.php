@@ -21,7 +21,7 @@ namespace ArrayPress\RegisterReports\Traits;
  */
 trait MenuBuilder {
 
-/**
+    /**
      * Register the admin menu page.
      *
      * @return void
@@ -54,7 +54,7 @@ trait MenuBuilder {
         }
     }
 
-/**
+    /**
      * Register help tabs for the reports screen.
      *
      * @return void
@@ -83,7 +83,7 @@ trait MenuBuilder {
         }
     }
 
-/**
+    /**
      * Add custom body class to the reports page.
      *
      * @param string $classes Space-separated list of body classes.
@@ -111,7 +111,7 @@ trait MenuBuilder {
         return $classes;
     }
 
-/**
+    /**
      * Fix parent menu highlight for report pages.
      *
      * @param string $parent_file The parent file.
@@ -128,7 +128,7 @@ trait MenuBuilder {
         return $parent_file;
     }
 
-/**
+    /**
      * Fix submenu highlight for report pages.
      *
      * @param string|null $submenu_file The submenu file.

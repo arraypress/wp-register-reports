@@ -26,7 +26,7 @@ use WP_REST_Request;
  */
 trait Permissions {
 
-/**
+	/**
 	 * Check permissions for REST API access.
 	 */
 	public static function check_permissions( WP_REST_Request $request ) {
@@ -46,7 +46,7 @@ trait Permissions {
 		return true;
 	}
 
-/**
+	/**
 	 * Check permissions for batch export requests.
 	 */
 	public static function check_batch_permissions( WP_REST_Request $request ) {
