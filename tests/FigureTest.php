@@ -283,4 +283,47 @@ final class FigureTest extends TestCase {
 		$this->assertStringContainsString( sprintf( 'data-component-type="%s"', $type ), $html );
 		$this->assertStringContainsString( 'data-component-id="demo"', $html );
 	}
+	/**
+	 * A figure draws its data on the first render.
+	 *
+	 * They rendered empty and waited for the refresh to fill them in, which
+	 * is a page that flashes when the fetch is quick and a page that says
+	 * "no data available" for ever when it fails — while the server had the
+	 * numbers the whole time. Tiles never did this; these were the odd ones.
+	 */
+	public function test_a_figure_draws_its_data_immediately(): void {
+		$html = $this->draw(
+			[
+				'type'          => 'progress',
+				'title'         => 'Monthly target',
+				'value_format'  => 'number',
+				'data_callback' => static fn(): array => [ 'value' => 840, 'target' => 1000 ],
+			]
+		);
+
+		$this->assertStringContainsString( 'width:84%', $html );
+		$this->assertStringContainsString( '84%', $html );
+		$this->assertStringContainsString( '840 of 1,000', $html );
+	}
+
+	/**
+	 * And a breakdown likewise, rather than reporting itself empty.
+	 */
+	public function test_a_breakdown_draws_its_rows_immediately(): void {
+		$html = $this->draw(
+			[
+				'type'          => 'breakdown',
+				'title'         => 'Top sources',
+				'data_callback' => static fn(): array => [
+					'rows' => [ [ 'label' => 'Google', 'value' => 12 ] ],
+				],
+			]
+		);
+
+		$this->assertStringContainsString( 'Google', $html );
+
+		// And the "nothing here" line is hidden, because there is something.
+		$this->assertMatchesRegularExpression( '/reports-breakdown-empty"\s+hidden/', $html );
+	}
+
 }

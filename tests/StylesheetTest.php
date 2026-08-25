@@ -194,6 +194,24 @@ final class StylesheetTest extends TestCase {
 	}
 
 	/**
+	 * A figure panel does not set its own width.
+	 *
+	 * The width classes live on the same element, so a width declared
+	 * alongside them wins on source order — which is why every progress bar,
+	 * breakdown and stat list came out full width however it was configured.
+	 */
+	public function test_a_figure_panel_leaves_its_width_to_its_class(): void {
+		preg_match(
+			'/\.reports-progress-wrapper,\s*\.reports-breakdown-wrapper,\s*\.reports-stat-list-wrapper\s*\{([^}]*)\}/',
+			$this->css(),
+			$rule
+		);
+
+		$this->assertNotEmpty( $rule, 'The figure panels have no shared rule.' );
+		$this->assertStringNotContainsString( 'width:', $rule[1] );
+	}
+
+	/**
 	 * The library styles for WordPress's own breakpoint.
 	 *
 	 * 782px is where core stacks the form table and grows every control to a

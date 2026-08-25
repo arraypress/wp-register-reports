@@ -77,7 +77,7 @@ trait PageRenderer {
         $has_title   = $show_title && ! empty( $header_title );
         $has_tabs    = $this->config['show_tabs'] && ! empty( $this->tabs );
         $logo_url    = (string) ( $this->config['logo'] ?? '' );
-        $tab_filters = $this->tabs[ $current_tab ]['filters'] ?? [];
+        $tab_filters = $this->filters_for( $current_tab );
 
         // Nothing to show: the rule still has to be there, since it is where
         // core moves admin notices to.
@@ -139,6 +139,32 @@ trait PageRenderer {
         }
 
         return $tabs;
+    }
+
+    /**
+     * The filters a tab shows.
+     *
+     * A report's own filters plus that tab's. Most of the useful ones — by
+     * product, by country, by gateway — apply to the whole report rather
+     * than to one tab of it, and repeating them under every tab is how one
+     * of them ends up configured differently from the others.
+     *
+     * The tab wins on a shared key, so a tab can narrow or replace a
+     * report-wide filter rather than only add to it.
+     *
+     * Public alongside get_tabs() and get_components(), because "what can
+     * this report be filtered by" is a question a consumer asks — to build a
+     * saved view, or an export that matches what is on screen.
+     *
+     * @param string $tab The current tab.
+     *
+     * @return array<string, mixed>
+     */
+    public function filters_for( string $tab ): array {
+        return array_merge(
+            (array) ( $this->config['filters'] ?? [] ),
+            (array) ( $this->tabs[ $tab ]['filters'] ?? [] )
+        );
     }
 
     /**

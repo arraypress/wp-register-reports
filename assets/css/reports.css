@@ -63,8 +63,13 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 20px;
+    gap: 8px 12px;
+
+    /* Continuous with the header above it: same white, no rule between, and
+       the bottom border is the one edge the whole band shares. Three
+       stacked bands each with their own border and their own gap is what
+       made the top of the page read as three unrelated screens. */
+    padding: 10px 20px 12px;
     background: #fff;
     border-bottom: 1px solid #c3c4c7;
 }
@@ -276,39 +281,10 @@ button.reports-date-picker-toggle.button {
     color: #646970;
 }
 
-.reports-refresh-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid #c3c4c7;
-    border-radius: 4px;
-    color: #646970;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.reports-refresh-button:hover {
-    background: #f6f7f7;
-    border-color: #8c8f94;
-    color: #1d2327;
-}
-
-.reports-refresh-button:focus {
-    outline: none;
-    border-color: var(--wp-admin-theme-color, #2271b1);
-    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #2271b1);
-}
-
-.reports-refresh-button .dashicons {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-}
-
+/* It is a core button. It used to be a 36px square with its own border,
+   hover and focus ring, which put it a head taller than the date picker
+   beside it and gave it a focus ring core does not draw anywhere else. All
+   that is left here is the icon size and the spin. */
 .reports-refresh-button.refreshing .dashicons {
     animation: reports-spin 1s linear infinite;
 }
@@ -1083,7 +1059,10 @@ button.reports-date-picker-toggle.button {
 .reports-progress-wrapper,
 .reports-breakdown-wrapper,
 .reports-stat-list-wrapper {
-    width: 100%;
+    /* No width here. The component--half / --third classes on the same
+       element set it, and a width declared alongside them wins on source
+       order — which is why every one of these came out full width however
+       it was configured. */
     padding: 20px;
     background: #fff;
     border: 1px solid #c3c4c7;
@@ -1265,4 +1244,78 @@ button.reports-date-picker-toggle.button {
     display: inline-block;
     margin-right: 16px;
     line-height: 2.2;
+}
+
+/* ==========================================================================
+   Control alignment
+
+   A dashicon is a 20px font glyph on a 20px line: dropped into a button
+   beside 13px text it sets the line box, so the text sits off-centre and the
+   button grows. Every control in this bar carries one, which is why none of
+   them lined up with each other.
+   ========================================================================== */
+
+.reports-date-picker-toggle,
+.reports-refresh-button,
+.reports-filter-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+
+    /* Core's own button height, so the three of them line up with each other
+       and with anything else in the bar. */
+    height: 30px;
+    line-height: 1;
+}
+
+.reports-date-picker-toggle .dashicons,
+.reports-refresh-button .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 16px;
+}
+
+/* ==========================================================================
+   Filter fields in the controls bar
+
+   One row, not a stack. Each field renders its label above its control,
+   which is right in a form and wrong in a toolbar — it made the bar twice
+   as tall as the controls in it and put a ragged line of labels above a
+   ragged line of selects.
+   ========================================================================== */
+
+.reports-controls-bar .reports-filter-form,
+.reports-controls-bar .reports-filter-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.reports-controls-bar .reports-filter-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.reports-controls-bar .reports-filter-field label {
+    color: #50575e;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.reports-controls-bar .reports-filter-field select,
+.reports-controls-bar .reports-filter-field input[type="text"] {
+    height: 30px;
+    min-height: 30px;
+    margin: 0;
+    line-height: 1;
+}
+
+/* A checkbox has no business being 30px tall. */
+.reports-controls-bar .reports-filter-field input[type="checkbox"] {
+    margin: 0;
 }

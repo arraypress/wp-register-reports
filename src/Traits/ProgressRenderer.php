@@ -36,6 +36,29 @@ use ArrayPress\RegisterReports\Format;
 trait ProgressRenderer {
 
 	/**
+	 * What a component's callback has to say, on the first render.
+	 *
+	 * These draw with their data rather than empty-and-then-over-REST. A
+	 * component that arrives blank and fills in a moment later is a page
+	 * that flashes, and one where the fetch fails is a page that says
+	 * nothing at all — while the server had the numbers the whole time.
+	 * The refresh path updates them in place afterwards.
+	 *
+	 * @param array<string, mixed> $component The component's configuration.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function component_data( array $component ): array {
+		$callback = $component['data_callback'] ?? null;
+
+		if ( ! $callback || ! is_callable( $callback ) ) {
+			return [];
+		}
+
+		return (array) call_user_func( $callback, $this->date_range, $component );
+	}
+
+	/**
 	 * One number against a target.
 	 *
 	 * @param string               $component_id The component.
@@ -46,6 +69,7 @@ trait ProgressRenderer {
 	protected function render_progress( string $component_id, array $component ): void {
 		$width  = $this->get_width_class( (string) ( $component['width'] ?? 'full' ) );
 		$format = (string) ( $component['value_format'] ?? 'number' );
+		$data   = $this->component_data( $component );
 
 		?>
 		<div class="reports-progress-wrapper <?php echo esc_attr( $width . ' ' . ( $component['class'] ?? '' ) ); ?>"
@@ -56,7 +80,7 @@ trait ProgressRenderer {
 			<?php endif; ?>
 
 			<div class="reports-progress" data-value-format="<?php echo esc_attr( $format ); ?>">
-				<?php $this->render_progress_bar( [], $component ); ?>
+				<?php $this->render_progress_bar( $data, $component ); ?>
 			</div>
 
 			<?php if ( ! empty( $component['description'] ) ) : ?>
@@ -122,6 +146,7 @@ trait ProgressRenderer {
 	 */
 	protected function render_breakdown( string $component_id, array $component ): void {
 		$width = $this->get_width_class( (string) ( $component['width'] ?? 'full' ) );
+		$rows  = (array) ( $this->component_data( $component )['rows'] ?? [] );
 
 		?>
 		<div class="reports-breakdown-wrapper <?php echo esc_attr( $width . ' ' . ( $component['class'] ?? '' ) ); ?>"
@@ -133,10 +158,10 @@ trait ProgressRenderer {
 
 			<ul class="reports-breakdown"
 				data-value-format="<?php echo esc_attr( (string) ( $component['value_format'] ?? 'number' ) ); ?>">
-				<?php $this->render_breakdown_rows( [], $component ); ?>
+				<?php $this->render_breakdown_rows( $rows, $component ); ?>
 			</ul>
 
-			<p class="reports-breakdown-empty"<?php echo empty( $component['rows'] ) ? '' : ' hidden'; ?>>
+			<p class="reports-breakdown-empty"<?php echo [] === $rows ? '' : ' hidden'; ?>>
 				<?php echo esc_html( (string) ( $component['empty_message'] ?? __( 'No data available', 'arraypress' ) ) ); ?>
 			</p>
 		</div>
@@ -203,6 +228,7 @@ trait ProgressRenderer {
 	 */
 	protected function render_stat_list( string $component_id, array $component ): void {
 		$width = $this->get_width_class( (string) ( $component['width'] ?? 'full' ) );
+		$rows  = (array) ( $this->component_data( $component )['rows'] ?? [] );
 
 		?>
 		<div class="reports-stat-list-wrapper <?php echo esc_attr( $width . ' ' . ( $component['class'] ?? '' ) ); ?>"
@@ -213,7 +239,7 @@ trait ProgressRenderer {
 			<?php endif; ?>
 
 			<dl class="reports-stat-list">
-				<?php $this->render_stat_rows( [], $component ); ?>
+				<?php $this->render_stat_rows( $rows, $component ); ?>
 			</dl>
 		</div>
 		<?php

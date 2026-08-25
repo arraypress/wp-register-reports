@@ -185,7 +185,7 @@ class Reports {
      * @return array
      */
     public function get_current_filters( string $tab ): array {
-        $tab_filters = $this->tabs[ $tab ]['filters'] ?? [];
+        $tab_filters = $this->filters_for( $tab );
         $values      = [];
 
         foreach ( $tab_filters as $filter_key => $filter ) {
