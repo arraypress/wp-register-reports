@@ -12,7 +12,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports;
 
-use ArrayPress\DateUtils\Dates;
+use ArrayPress\Dates\Preset;
+use ArrayPress\Dates\Site;
 use ArrayPress\RegisterReports\Utils\Runtime;
 use WP_REST_Request;
 use ArrayPress\RegisterReports\Rest\ComponentData;
@@ -86,6 +87,14 @@ class RestApi {
 			$preset = $report->get_config( 'default_preset', 'this_month' );
 		}
 
-		return Dates::get_range_full( $preset, $date_start ?? '', $date_end ?? '' );
+		$range = Preset::resolve( $preset, $date_start ?? '', $date_end ?? '' );
+
+		return [
+			'start'       => $range->start(),
+			'end'         => $range->end(),
+			'start_local' => Site::format( $range->start(), 'Y-m-d H:i:s' ),
+			'end_local'   => Site::format( $range->end(), 'Y-m-d H:i:s' ),
+			'preset'      => $preset,
+		];
 	}
 }

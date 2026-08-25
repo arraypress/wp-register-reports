@@ -12,7 +12,7 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports;
 
-use ArrayPress\DateUtils\Dates;
+use ArrayPress\Dates\Site;
 
 /**
  * How a report shows a number.
@@ -56,10 +56,10 @@ final class Format {
 				return number_format_i18n( (float) $value, 2 );
 
 			case 'date':
-				return Dates::format( $value, 'date' );
+				return Site::format( $value );
 
 			case 'datetime':
-				return Dates::format( $value );
+				return Site::format_datetime( $value );
 
 			default:
 				// Not empty: a report naming a format that does not exist

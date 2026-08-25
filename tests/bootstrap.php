@@ -307,4 +307,32 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_timezone' ) ) {
+	/**
+	 * The site's timezone.
+	 *
+	 * @return DateTimeZone
+	 */
+	function wp_timezone(): DateTimeZone {
+		return new DateTimeZone( $GLOBALS['rr_timezone'] ?? 'UTC' );
+	}
+}
+
+if ( ! function_exists( 'date_i18n' ) ) {
+	/**
+	 * Core's translated date formatter.
+	 *
+	 * Core expects a timestamp already shifted into the site's offset, which
+	 * is what wp-date-utils hands it.
+	 *
+	 * @param string   $format    Date format.
+	 * @param int|null $timestamp Shifted timestamp.
+	 *
+	 * @return string
+	 */
+	function date_i18n( string $format, ?int $timestamp = null ): string {
+		return gmdate( $format, $timestamp ?? time() );
+	}
+}
+
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';

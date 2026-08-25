@@ -12,7 +12,9 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
-use ArrayPress\DateUtils\Dates;
+use ArrayPress\Dates\Preset;
+use ArrayPress\Dates\Range;
+use ArrayPress\Dates\Site;
 
 /**
  * Trait DateRangeHandler
@@ -39,13 +41,38 @@ trait DateRangeHandler {
             $preset = $this->config['default_preset'] ?? 'this_month';
         }
 
-        return Dates::get_range_full( $preset, $date_start, $date_end );
+        return self::range_to_array( Preset::resolve( $preset, $date_start, $date_end ), $preset );
+    }
+
+    /**
+     * A Range as the array the rest of this library passes around.
+     *
+     * The library predates the value object and threads an array through
+     * every screen, filter and REST route. Converting at the edge keeps that
+     * one shape rather than rewriting all of it.
+     *
+     * `start` and `end` are UTC, for querying. The `_local` pair is the same
+     * moment in the site's timezone, for showing somebody.
+     *
+     * @param Range  $range  The range.
+     * @param string $preset Which preset produced it.
+     *
+     * @return array
+     */
+    protected static function range_to_array( Range $range, string $preset = 'custom' ): array {
+        return [
+            'start'       => $range->start(),
+            'end'         => $range->end(),
+            'start_local' => Site::format( $range->start(), 'Y-m-d H:i:s' ),
+            'end_local'   => Site::format( $range->end(), 'Y-m-d H:i:s' ),
+            'preset'      => $preset,
+        ];
     }
 
     /**
      * Calculate date range from preset.
      *
-     * Uses Dates::get_range_full() which calculates in local timezone
+     * Resolves the preset in the site's timezone, then hands back UTC
      * then converts to UTC for database queries.
      *
      * @param string $preset Preset name.
@@ -53,7 +80,7 @@ trait DateRangeHandler {
      * @return array Contains UTC start/end for queries and local dates for display.
      */
     public function calculate_date_range( string $preset ): array {
-        return Dates::get_range_full( $preset );
+        return self::range_to_array( Preset::resolve( $preset ), $preset );
     }
 
     /**
@@ -64,9 +91,9 @@ trait DateRangeHandler {
      * @return array
      */
     public function get_previous_period( array $date_range ): array {
-        $previous = Dates::get_previous_period( $date_range['start'], $date_range['end'] );
+        $previous = Range::between( $date_range['start'], $date_range['end'] )->previous();
 
-        return array_merge( $previous, [ 'preset' => 'previous' ] );
+        return self::range_to_array( $previous, 'previous' );
     }
 
     /**
@@ -82,7 +109,7 @@ trait DateRangeHandler {
             return $this->config['date_presets'];
         }
 
-        return Dates::get_range_options( true, true );
+        return Preset::options();
     }
 
     /**
@@ -98,7 +125,7 @@ trait DateRangeHandler {
         $preset_label = $presets[ $preset ] ?? __( 'Custom Range', 'arraypress' );
 
         if ( $preset === 'custom' ) {
-            $preset_label = Dates::format_range( $current_range['start'], $current_range['end'] );
+            $preset_label = self::format_range( $current_range['start'], $current_range['end'] );
         }
 
         ?>
@@ -163,7 +190,7 @@ trait DateRangeHandler {
      * @return string
      */
     public function format_date( string $utc_date, string $format = '' ): string {
-        return Dates::to_local( $utc_date, $format );
+        return Site::format( $utc_date, $format );
     }
 
     /**
@@ -174,7 +201,7 @@ trait DateRangeHandler {
      * @return int
      */
     public function get_days_in_range( array $date_range ): int {
-        return Dates::days_in_range( $date_range['start'], $date_range['end'] );
+        return Range::between( $date_range['start'], $date_range['end'] )->days();
     }
 
     /**
@@ -193,9 +220,28 @@ trait DateRangeHandler {
 
         // For custom, return the formatted date range
         if ( $preset === 'custom' && ! empty( $this->date_range['start'] ) && ! empty( $this->date_range['end'] ) ) {
-            return Dates::format_range( $this->date_range['start'], $this->date_range['end'] );
+            return self::format_range( $this->date_range['start'], $this->date_range['end'] );
         }
 
         return '';
+    }
+
+    /**
+     * "1 – 31 May 2026", or the two dates in full when they straddle a month.
+     *
+     * @param string $start UTC start.
+     * @param string $end   UTC end.
+     *
+     * @return string
+     */
+    protected static function format_range( string $start, string $end ): string {
+        $from = Site::format( $start, 'j M Y' );
+        $to   = Site::format( $end, 'j M Y' );
+
+        if ( '' === $from || '' === $to ) {
+            return '';
+        }
+
+        return $from === $to ? $from : $from . ' – ' . $to;
     }
 }

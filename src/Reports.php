@@ -12,7 +12,7 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports;
 
-use ArrayPress\DateUtils\Dates;
+use ArrayPress\Dates\Preset;
 use ArrayPress\RegisterReports\Traits\AssetManager;
 use ArrayPress\RegisterReports\Traits\ComponentRenderer;
 use ArrayPress\RegisterReports\Traits\ConfigParser;
@@ -138,7 +138,7 @@ class Reports {
         $this->id = sanitize_key( $id );
 
         // Populate dynamic defaults before merging
-        $this->defaults['date_presets'] = Dates::get_range_options( true, true );
+        $this->defaults['date_presets'] = Preset::options();
 
         $this->config = wp_parse_args( $config, $this->defaults );
 
