@@ -253,6 +253,16 @@ trait ConfigParser {
 	protected function get_components_for_tab( string $tab ): array {
 		$components = $this->components[ $tab ] ?? [];
 
+		// Whatever this person turned off in Screen Options. Filtered here
+		// rather than at render time so that everything downstream — the
+		// grouping of tiles, the empty state, the REST payload — agrees
+		// about what is on the page.
+		$hidden = $this->hidden_components();
+
+		if ( [] !== $hidden ) {
+			$components = array_diff_key( $components, array_flip( $hidden ) );
+		}
+
 		// Sort by order
 		uasort( $components, function ( $a, $b ) {
 			return ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 );

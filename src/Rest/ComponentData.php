@@ -163,6 +163,21 @@ trait ComponentData {
 						];
 						break;
 
+					case 'progress':
+						$components_data[ $component_id ] = self::progress_payload( $raw_data, $component );
+						break;
+
+					case 'breakdown':
+						$components_data[ $component_id ] = self::breakdown_payload( $raw_data, $component );
+						break;
+
+					case 'stat_list':
+						$components_data[ $component_id ] = [
+							'type' => 'stat_list',
+							'rows' => self::stat_rows( (array) ( $raw_data['rows'] ?? $raw_data ?? [] ), $component ),
+						];
+						break;
+
 					case 'table':
 						$rows = (array) ( $raw_data['rows'] ?? $raw_data ?? [] );
 
@@ -264,6 +279,112 @@ trait ComponentData {
 	 */
 	private static function format_value_for_api( $value, string $format, string $currency = 'USD' ): string {
 		return Format::value( $value, $format, $currency );
+	}
+
+	/**
+	 * One number against a target, ready to draw.
+	 *
+	 * The division and the formatting happen here, with the same code that
+	 * rendered the page, so the script has a percentage and two strings and
+	 * nothing to work out. A second implementation in JavaScript is how the
+	 * table came to print dollars on a site set to euros.
+	 *
+	 * @param array<string, mixed> $raw       What the callback returned.
+	 * @param array<string, mixed> $component The component's configuration.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function progress_payload( array $raw, array $component ): array {
+		$value    = (float) ( $raw['value'] ?? 0 );
+		$target   = (float) ( $raw['target'] ?? $component['target'] ?? 0 );
+		$format   = (string) ( $component['value_format'] ?? 'number' );
+		$currency = (string) ( $component['currency'] ?? 'USD' );
+
+		// A target of nought is a target nobody set, and dividing by it takes
+		// the request with it.
+		$percent = $target > 0 ? min( 100, max( 0, ( $value / $target ) * 100 ) ) : 0.0;
+
+		return [
+			'type'              => 'progress',
+			'percent'           => $percent,
+			'formatted_percent' => number_format_i18n( $percent, $percent < 10 ? 1 : 0 ) . '%',
+			'formatted_figures' => sprintf(
+				/* translators: 1: the value reached, 2: the target */
+				__( '%1$s of %2$s', 'arraypress' ),
+				Format::value( $value, $format, $currency ),
+				Format::value( $target, $format, $currency )
+			),
+		];
+	}
+
+	/**
+	 * A ranked list, with each bar's width already worked out.
+	 *
+	 * Widths are against the largest row rather than the total, so the top
+	 * row always fills. Against the total, eight roughly equal things are
+	 * eight identical stubs and the shape says nothing — which is the failure
+	 * a breakdown exists to avoid.
+	 *
+	 * @param array<string, mixed> $raw       What the callback returned.
+	 * @param array<string, mixed> $component The component's configuration.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function breakdown_payload( array $raw, array $component ): array {
+		$rows     = (array) ( $raw['rows'] ?? $raw ?? [] );
+		$format   = (string) ( $component['value_format'] ?? 'number' );
+		$currency = (string) ( $component['currency'] ?? 'USD' );
+
+		$values  = array_map( static fn( $row ): float => (float) ( ( (array) $row )['value'] ?? 0 ), $rows );
+		$largest = $values ? ( max( $values ) ?: 1.0 ) : 1.0;
+		$total   = $values ? ( array_sum( $values ) ?: 1.0 ) : 1.0;
+
+		$payload = [];
+
+		foreach ( $rows as $row ) {
+			$row   = (array) $row;
+			$value = (float) ( $row['value'] ?? 0 );
+
+			$payload[] = [
+				'label'           => wp_kses_post( (string) ( $row['label'] ?? '' ) ),
+				'width'           => round( ( $value / $largest ) * 100, 2 ),
+				'share'           => number_format_i18n( ( $value / $total ) * 100, 1 ) . '%',
+				'formatted_value' => Format::value( $value, $format, $currency ),
+			];
+		}
+
+		return [
+			'type' => 'breakdown',
+			'rows' => $payload,
+		];
+	}
+
+	/**
+	 * Label and value rows, formatted.
+	 *
+	 * @param array<int, mixed>    $rows      What the callback returned.
+	 * @param array<string, mixed> $component The component's configuration.
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private static function stat_rows( array $rows, array $component ): array {
+		$currency = (string) ( $component['currency'] ?? 'USD' );
+		$payload  = [];
+
+		foreach ( $rows as $row ) {
+			$row = (array) $row;
+
+			$payload[] = [
+				'label'           => wp_kses_post( (string) ( $row['label'] ?? '' ) ),
+				'formatted_value' => Format::value(
+					$row['value'] ?? '',
+					(string) ( $row['format'] ?? $component['value_format'] ?? 'number' ),
+					$currency
+				),
+			];
+		}
+
+		return $payload;
 	}
 
 	/**

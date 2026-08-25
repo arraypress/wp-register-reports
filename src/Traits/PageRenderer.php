@@ -93,12 +93,10 @@ trait PageRenderer {
         // with a settings page, a list table and a reports screen had three
         // headers that were nearly but not quite the same. There is one now.
         //
-        // The refresh control and the date range go in the actions slot on
-        // the right, which is the whole reason that slot exists.
-        ob_start();
-        $this->render_header_actions();
-        $actions = (string) ob_get_clean();
-
+        // Nothing goes in the actions slot. The date range and the refresh
+        // control used to, which centred them under the title and stacked
+        // them one above the other; they are in a row under the tabs now,
+        // beside the filters they belong with.
         $header = PageHeader::render(
                 [
 					'title'         => $has_title ? $header_title : '',
@@ -106,15 +104,12 @@ trait PageRenderer {
 					'logo_position' => (string) ( $this->config['logo_position'] ?? 'beside' ),
 					'tabs'          => $has_tabs ? $this->header_tabs() : [],
 					'current'       => $current_tab,
-					'actions'       => $actions,
                 ]
         );
 
         echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the kit escapes as it builds.
 
-        if ( ! empty( $tab_filters ) ) {
-            $this->render_filter_bar( $tab_filters );
-        }
+        $this->render_controls_bar( $tab_filters );
     }
 
     /**
@@ -132,7 +127,14 @@ trait PageRenderer {
 
 				// The library's own configuration spells these
 				// 'dashicons-chart-bar'; the kit takes the name alone.
-				'icon'  => ltrim( (string) ( $tab['icon'] ?? '' ), 'dashicons-' ),
+				//
+				// preg_replace, not ltrim: ltrim takes a set of characters,
+				// not a prefix, so it ate every leading letter that happened
+				// to appear in "dashicons-" — 'dashicons-chart-bar' came out
+				// as 'rt-bar' and rendered nothing. 'dashicons-list-view'
+				// survived because l is not in the set, which is why exactly
+				// one tab on the demo had an icon.
+				'icon'  => (string) preg_replace( '/^dashicons-/', '', (string) ( $tab['icon'] ?? '' ) ),
             ];
         }
 
@@ -140,43 +142,85 @@ trait PageRenderer {
     }
 
     /**
-     * The refresh control and the date range, for the header's actions slot.
+     * The bar under the header: date range, filters, refresh.
+     *
+     * Everything that changes what is on screen, in one row, immediately
+     * under the tabs it applies to — which is where a list table puts its
+     * filters and where every analytics screen worth using puts its date
+     * range. It was in the header's actions slot before, centred under the
+     * title, with the refresh button stacked on top of it.
+     *
+     * Rendered whenever there is anything to put in it, so a report with no
+     * filters still gets its date range and a report with no date picker
+     * still gets its filters.
+     *
+     * @param array<string, mixed> $filters The current tab's filters.
      *
      * @return void
      */
-    protected function render_header_actions(): void {
-        $show_refresh = $this->config['show_refresh'] ?? true;
-        $auto_refresh = (int) ( $this->config['auto_refresh'] ?? 0 );
+    protected function render_controls_bar( array $filters ): void {
+        $date    = (bool) ( $this->config['show_date_picker'] ?? true );
+        $refresh = (bool) ( $this->config['show_refresh'] ?? true );
+        $auto    = (int) ( $this->config['auto_refresh'] ?? 0 );
 
-        if ( $show_refresh || $auto_refresh > 0 ) {
-            printf(
-                    '<div class="reports-refresh-controls" data-auto-refresh="%s" data-report-id="%s">',
-                    esc_attr( (string) $auto_refresh ),
-                    esc_attr( $this->id )
-            );
-
-            if ( $auto_refresh > 0 ) {
-                printf(
-                        '<span class="reports-last-updated"><span class="reports-last-updated-text">%s</span></span>',
-                        esc_html__( 'Updated just now', 'arraypress' )
-                );
-            }
-
-            if ( $show_refresh ) {
-                printf(
-                        '<button type="button" class="reports-refresh-button" title="%s">' .
-                        '<span class="dashicons dashicons-update" aria-hidden="true"></span>' .
-                        '<span class="screen-reader-text">%1$s</span></button>',
-                        esc_attr__( 'Refresh', 'arraypress' )
-                );
-            }
-
-            echo '</div>';
+        if ( ! $date && ! $refresh && $auto < 1 && [] === $filters ) {
+            return;
         }
 
-        if ( $this->config['show_date_picker'] ) {
+        echo '<div class="reports-controls-bar">';
+        echo '<div class="reports-controls-bar-start">';
+
+        if ( $date ) {
             $this->render_date_picker();
         }
+
+        if ( [] !== $filters ) {
+            $this->render_filter_bar( $filters );
+        }
+
+        echo '</div>';
+
+        $this->render_refresh_controls();
+
+        echo '</div>';
+    }
+
+    /**
+     * The refresh button, and the "updated just now" it sits beside.
+     *
+     * @return void
+     */
+    protected function render_refresh_controls(): void {
+        $show = (bool) ( $this->config['show_refresh'] ?? true );
+        $auto = (int) ( $this->config['auto_refresh'] ?? 0 );
+
+        if ( ! $show && $auto < 1 ) {
+            return;
+        }
+
+        printf(
+                '<div class="reports-refresh-controls" data-auto-refresh="%s" data-report-id="%s">',
+                esc_attr( (string) $auto ),
+                esc_attr( $this->id )
+        );
+
+        if ( $auto > 0 ) {
+            printf(
+                    '<span class="reports-last-updated"><span class="reports-last-updated-text">%s</span></span>',
+                    esc_html__( 'Updated just now', 'arraypress' )
+            );
+        }
+
+        if ( $show ) {
+            printf(
+                    '<button type="button" class="button reports-refresh-button" title="%s">' .
+                    '<span class="dashicons dashicons-update" aria-hidden="true"></span>' .
+                    '<span class="screen-reader-text">%1$s</span></button>',
+                    esc_attr__( 'Refresh', 'arraypress' )
+            );
+        }
+
+        echo '</div>';
     }
 
     /**

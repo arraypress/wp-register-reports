@@ -20,6 +20,7 @@ use ArrayPress\RegisterReports\Traits\DateRangeHandler;
 use ArrayPress\RegisterReports\Traits\ExportHandler;
 use ArrayPress\RegisterReports\Traits\MenuBuilder;
 use ArrayPress\RegisterReports\Traits\PageRenderer;
+use ArrayPress\RegisterReports\Traits\ScreenOptions;
 use ArrayPress\RegisterReports\Traits\TabManager;
 
 /**
@@ -36,6 +37,7 @@ class Reports {
     use ExportHandler;
     use MenuBuilder;
     use PageRenderer;
+    use ScreenOptions;
     use TabManager;
 
     /**

@@ -23,6 +23,7 @@ use ArrayPress\RegisterReports\Utils\Runtime;
 trait ComponentRenderer {
 
     use ChartRenderer;
+    use ProgressRenderer;
     use TableRenderer;
     use TileRenderer;
 
@@ -110,6 +111,18 @@ trait ComponentRenderer {
 
             case 'table':
                 $this->render_table( $component_id, $component );
+                break;
+
+            case 'progress':
+                $this->render_progress( $component_id, $component );
+                break;
+
+            case 'breakdown':
+                $this->render_breakdown( $component_id, $component );
+                break;
+
+            case 'stat_list':
+                $this->render_stat_list( $component_id, $component );
                 break;
 
             case 'html':

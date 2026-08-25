@@ -92,6 +92,7 @@
             this.repositionNotices();
             this.bindEvents();
             this.initCharts();
+            this.initSparklines();
             this.initTables();
             this.initRefresh();
         },
@@ -376,7 +377,85 @@
                     this.updateChart(componentId, data);
                 } else if (data.type === 'table' || $component.hasClass('reports-table-wrapper')) {
                     this.updateTable($component, componentId, data);
+                } else if (data.type === 'progress') {
+                    this.updateProgress($component, data);
+                } else if (data.type === 'breakdown') {
+                    this.updateBreakdown($component, data);
+                } else if (data.type === 'stat_list') {
+                    this.updateStatList($component, data);
                 }
+            });
+        },
+
+        /**
+         * Update a progress component
+         *
+         * The server sends the percentage and both formatted figures — it did
+         * the division and the formatting with the same code that rendered the
+         * page, so there is nothing to work out here.
+         *
+         * @param {jQuery} $component - Progress wrapper
+         * @param {Object} data       - Progress data
+         * @returns {void}
+         */
+        updateProgress: function ($component, data) {
+            const percent = Math.max(0, Math.min(100, parseFloat(data.percent) || 0));
+
+            $component.find('.reports-progress-fill').css('width', percent + '%');
+            $component.find('.reports-progress-track').attr('aria-valuenow', Math.round(percent));
+            $component.find('.reports-progress-percent').text(data.formatted_percent || '');
+            $component.find('.reports-progress-figures').text(data.formatted_figures || '');
+        },
+
+        /**
+         * Update a breakdown component
+         *
+         * @param {jQuery} $component - Breakdown wrapper
+         * @param {Object} data       - Breakdown data
+         * @returns {void}
+         */
+        updateBreakdown: function ($component, data) {
+            const $list = $component.find('.reports-breakdown');
+            const rows = Array.isArray(data.rows) ? data.rows : [];
+
+            $list.empty();
+            $component.find('.reports-breakdown-empty').prop('hidden', rows.length > 0);
+
+            rows.forEach((row) => {
+                const $row = $('<li>').addClass('reports-breakdown-row');
+
+                $('<span>').addClass('reports-breakdown-label').text(row.label || '').appendTo($row);
+
+                $('<span>').addClass('reports-breakdown-track').append(
+                    $('<span>').addClass('reports-breakdown-fill').css('width', (row.width || 0) + '%')
+                ).appendTo($row);
+
+                $('<span>').addClass('reports-breakdown-share').text(row.share || '').appendTo($row);
+                $('<span>').addClass('reports-breakdown-value').text(row.formatted_value || '').appendTo($row);
+
+                $list.append($row);
+            });
+        },
+
+        /**
+         * Update a stat list component
+         *
+         * @param {jQuery} $component - Stat list wrapper
+         * @param {Object} data       - Stat list data
+         * @returns {void}
+         */
+        updateStatList: function ($component, data) {
+            const $list = $component.find('.reports-stat-list');
+            const rows = Array.isArray(data.rows) ? data.rows : [];
+
+            $list.empty();
+
+            rows.forEach((row) => {
+                $list.append(
+                    $('<div>').addClass('reports-stat-row')
+                        .append($('<dt>').text(row.label || ''))
+                        .append($('<dd>').text(row.formatted_value || ''))
+                );
             });
         },
 
@@ -931,6 +1010,55 @@
          *
          * @returns {void}
          */
+        initSparklines: function () {
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+
+            $('[data-sparkline]').each((index, element) => {
+                let points;
+
+                try {
+                    points = JSON.parse($(element).attr('data-sparkline'));
+                } catch (e) {
+                    return;
+                }
+
+                if (!Array.isArray(points) || points.length < 2) {
+                    return;
+                }
+
+                const direction = $(element).data('direction');
+                const colour = direction === 'down' ? '#d63638' : (direction === 'up' ? '#00a32a' : '#787c82');
+
+                new Chart(element.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: points.map(() => ''),
+                        datasets: [{
+                            data: points,
+                            borderColor: colour,
+                            borderWidth: 1.5,
+                            fill: false,
+                            pointRadius: 0,
+                            tension: 0.35,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+
+                        // No axes, no legend, no tooltip: it is a shape, not a
+                        // reading. Anyone who wants the values wants the chart
+                        // component, which has all three.
+                        plugins: {legend: {display: false}, tooltip: {enabled: false}},
+                        scales: {x: {display: false}, y: {display: false}},
+                        animation: false,
+                    },
+                });
+            });
+        },
+
         initTables: function () {
             $('.reports-table-wrapper').each((index, element) => {
                 const $wrapper = $(element);

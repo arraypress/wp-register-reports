@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 namespace ArrayPress\RegisterReports\Traits;
 
+use ArrayPress\FieldKit\Support\PageHeader;
+
 /**
  * Putting the report in the admin menu, and keeping it highlighted.
  *
@@ -52,6 +54,16 @@ trait MenuBuilder {
         if ( ! empty( $this->config['help_tabs'] ) || ! empty( $this->config['help_sidebar'] ) ) {
             add_action( 'load-' . $this->hook_suffix, [ $this, 'register_help_tabs' ] );
         }
+
+        // And screen options. Here rather than in init_hooks() because both
+        // hang off load-{$hook_suffix}, and the hook suffix is what
+        // registering the menu has just returned.
+        $this->init_screen_options();
+
+        // And screen options. Here rather than in init_hooks() because both
+        // of these hang off load-{$hook_suffix}, and the hook suffix is what
+        // registering the menu just returned.
+        $this->init_screen_options();
     }
 
     /**
@@ -96,6 +108,14 @@ trait MenuBuilder {
         if ( ! $screen || $screen->id !== $this->hook_suffix ) {
             return $classes;
         }
+
+        // The kit's, because the header is the kit's. Its rules take core's
+        // padding off #wpcontent so a full-bleed header reaches both edges,
+        // and put it back on .wrap so the content below still lines up. The
+        // reports screen rendered the header and none of that, so the header
+        // sat inside core's gutter while claiming the whole width — which is
+        // the misalignment you can see and cannot name.
+        $classes .= ' ' . PageHeader::body_class();
 
         // Add generic reports class
         $classes .= ' reports';

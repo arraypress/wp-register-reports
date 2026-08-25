@@ -95,6 +95,27 @@ trait TileRenderer {
                 <?php echo esc_html( $this->format_value( $value, $component['value_format'] ?? 'number', $component ) ); ?>
             </div>
 
+            <?php if ( ! empty( $component['sparkline'] ) ) : ?>
+                <?php
+                /*
+                 * A tile says what a number is now. A sparkline is the cheapest
+                 * way to also say where it is going, which is the question the
+                 * number on its own always provokes — and unlike a chart it
+                 * costs no title, no axes and no legend.
+                 *
+                 * No axes and no numbers on purpose: it is a shape, not a
+                 * reading. Anyone who wants the values wants the chart, which
+                 * is a component of its own. Hidden from assistive technology
+                 * for the same reason — the figure and the change beside it
+                 * already say everything a sparkline could.
+                 */
+                ?>
+                <div class="reports-tile-sparkline" aria-hidden="true">
+                    <canvas data-sparkline="<?php echo esc_attr( (string) wp_json_encode( array_map( 'floatval', (array) $component['sparkline'] ) ) ); ?>"
+                        data-direction="<?php echo esc_attr( (string) $change_direction ); ?>"></canvas>
+                </div>
+            <?php endif; ?>
+
             <div class="reports-tile-footer">
                 <?php if ( $change !== null && $change_direction ) : ?>
                     <?php
