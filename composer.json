@@ -14,7 +14,8 @@
     "php": ">=8.3",
     "arraypress/wp-composer-assets": "dev-main",
     "arraypress/wp-date-utils": "dev-main",
-    "arraypress/wp-field-kit": "dev-main"
+    "arraypress/wp-field-kit": "dev-main",
+    "arraypress/wp-money": "^1.0"
   },
   "autoload": {
     "psr-4": {

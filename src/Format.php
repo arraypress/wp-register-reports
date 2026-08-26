@@ -40,7 +40,7 @@ final class Format {
 	public static function value( $value, string $format, string $currency = 'USD' ): string {
 		switch ( $format ) {
 			case 'currency':
-				return format_currency( self::minor_units( $value ), $currency );
+				return format_money( self::minor_units( $value ), [ 'currency' => $currency ] );
 
 			case 'percentage':
 				return number_format_i18n( (float) $value, 1 ) . '%';

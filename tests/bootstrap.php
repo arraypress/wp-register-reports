@@ -120,11 +120,17 @@ if ( ! function_exists( 'wp_timezone_string' ) ) {
 	}
 }
 
-if ( ! function_exists( 'format_currency' ) ) {
-	function format_currency( $cents, $currency = 'USD' ) {
-		return sprintf( '%s%s', 'USD' === $currency ? '$' : $currency . ' ', number_format( $cents / 100, 2 ) );
-	}
-}
+/*
+ * format_money() comes from wp-money, which is a real dependency rather than
+ * something stubbed. A hand-written stub here would format US dollars and
+ * nothing else, and would not know that yen has no decimal places -- so the
+ * currency tests would pass while the library got it wrong on a live site.
+ */
+// `require`, not `require_once`: phpunit loads the Composer autoloader before
+// this file, so wp-money's Functions.php has already run once -- before
+// ABSPATH existed, so it returned without declaring anything. require_once
+// would see the path in the included list and do nothing at all.
+require dirname( __DIR__ ) . '/vendor/arraypress/wp-money/src/Functions.php';
 
 /*
  * Filters, which the kit's stubs record but never run. This library applies

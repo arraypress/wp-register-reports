@@ -113,7 +113,7 @@ final class FormatTest extends TestCase {
 	 * The currency comes from the component.
 	 */
 	public function test_the_currency_comes_from_the_component(): void {
-		$this->assertSame( 'GBP 99.00', $this->renderer()->format( 9900, 'currency', [ 'currency' => 'GBP' ] ) );
+		$this->assertSame( '£99.00', $this->renderer()->format( 9900, 'currency', [ 'currency' => 'GBP' ] ) );
 	}
 
 	/**
