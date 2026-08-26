@@ -117,7 +117,7 @@ trait PageRenderer {
     /**
      * The tabs, in the shape the kit's header wants.
      *
-     * @return array<string, array{label: string, url: string, icon: string}>
+     * @return array<string, array{label: string, url: string}>
      */
     protected function header_tabs(): array {
         $tabs = [];
@@ -126,17 +126,6 @@ trait PageRenderer {
             $tabs[ $key ] = [
 				'label' => (string) ( $tab['label'] ?? $key ),
 				'url'   => $this->get_tab_url( (string) $key ),
-
-				// The library's own configuration spells these
-				// 'dashicons-chart-bar'; the kit takes the name alone.
-				//
-				// preg_replace, not ltrim: ltrim takes a set of characters,
-				// not a prefix, so it ate every leading letter that happened
-				// to appear in "dashicons-" — 'dashicons-chart-bar' came out
-				// as 'rt-bar' and rendered nothing. 'dashicons-list-view'
-				// survived because l is not in the set, which is why exactly
-				// one tab on the demo had an icon.
-				'icon'  => (string) preg_replace( '/^dashicons-/', '', (string) ( $tab['icon'] ?? '' ) ),
             ];
         }
 
@@ -249,11 +238,13 @@ trait PageRenderer {
         }
 
         if ( $show ) {
+            // A word rather than a glyph. It was an icon-only button, which
+            // in this version of WordPress is a 40px square of solid border
+            // sitting beside two labelled controls -- and the one control on
+            // the bar whose meaning you had to already know.
             printf(
-                    '<button type="button" class="button reports-refresh-button" title="%s">' .
-                    '<span class="dashicons dashicons-update" aria-hidden="true"></span>' .
-                    '<span class="screen-reader-text">%1$s</span></button>',
-                    esc_attr__( 'Refresh', 'arraypress' )
+                    '<button type="button" class="button reports-refresh-button">%s</button>',
+                    esc_html__( 'Refresh', 'arraypress' )
             );
         }
 

@@ -41,7 +41,6 @@ trait ConfigParser {
 			if ( ! empty( $this->config['components'] ) ) {
 				$this->tabs['default'] = [
 					'label' => __( 'Overview', 'arraypress' ),
-					'icon'  => 'dashicons-chart-bar',
 				];
 			}
 
@@ -236,7 +235,6 @@ trait ConfigParser {
 			'total_callback' => null,
 			'columns'       => [],
 			'filters'       => [],
-			'icon'          => 'dashicons-download',
 			'button_text'   => __( 'Export CSV', 'arraypress' ),
 		];
 

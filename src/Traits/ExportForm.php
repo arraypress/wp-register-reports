@@ -53,12 +53,6 @@ trait ExportForm {
 	 * @return void
 	 */
 	protected function render_export_card( string $export_id, array $export ): void {
-		// Normalize icon - allow both 'dashicons-download' and 'download'
-		$icon = $export['icon'] ?? 'download';
-		if ( ! str_starts_with( $icon, 'dashicons-' ) ) {
-			$icon = 'dashicons-' . $icon;
-		}
-
 		?>
 		<div class="reports-export-card" data-export-id="<?php echo esc_attr( $export_id ); ?>">
 			<h4 class="reports-export-title">

@@ -318,7 +318,7 @@
                 return;
             }
 
-            $button.addClass('refreshing');
+            $button.addClass('refreshing updating-message');
             $('.reports-content').addClass('reports-component-refreshing');
 
             const filters = this.getCurrentFilters();
@@ -348,7 +348,7 @@
                     console.error('Refresh failed:', xhr.responseJSON);
                 },
                 complete: () => {
-                    $button.removeClass('refreshing');
+                    $button.removeClass('refreshing updating-message');
                     $('.reports-content').removeClass('reports-component-refreshing');
 
                     this.lastUpdated = new Date();
@@ -487,7 +487,7 @@
                 $change
                     .removeClass('change-up change-down change-neutral')
                     .addClass(changeClass)
-                    .html('<span class="dashicons dashicons-' + icon + '"></span> ' + Math.abs(data.change).toFixed(1) + '%');
+                    .html('<span class="dashicons dashicons-' + icon + '" aria-hidden="true"></span> ' + Math.abs(data.change).toFixed(1) + '%');
             }
         },
 
@@ -793,7 +793,10 @@
             const $dropdown = $picker.find('.reports-date-picker-dropdown');
 
             $('.reports-date-picker-dropdown').not($dropdown).hide();
+            $('.reports-date-picker-toggle').not(e.currentTarget).attr('aria-expanded', 'false');
+
             $dropdown.toggle();
+            $(e.currentTarget).attr('aria-expanded', $dropdown.is(':visible') ? 'true' : 'false');
         },
 
         /**
@@ -865,6 +868,7 @@
                 $('.reports-date-picker-dropdown').hide();
                 $('.reports-date-picker-custom').hide();
                 $('.reports-date-picker-presets').show();
+                $('.reports-date-picker-toggle').attr('aria-expanded', 'false');
             }
         },
 

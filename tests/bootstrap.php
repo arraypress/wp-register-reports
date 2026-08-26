@@ -34,6 +34,16 @@ if ( ! function_exists( 'current_user_can' ) ) {
 }
 
 /*
+ * Not in the kit's set: it renders form controls, and this library renders
+ * links -- tabs, export downloads, pagination.
+ */
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( $url ) {
+		return esc_url_raw( $url );
+	}
+}
+
+/*
  * The kit's WordPress stubs. This library depends on it, so they are here,
  * and writing a second set would mean two answers to "what does esc_attr do
  * in a test" — which is how a suite ends up passing on markup that would not

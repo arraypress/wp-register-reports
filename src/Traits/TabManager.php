@@ -85,12 +85,13 @@ trait TabManager {
 			$active_class = ( $tab_key === $current_tab ) ? ' reports-tab-active' : '';
 			$url          = $this->get_tab_url( $tab_key );
 
+			// No icon. Core draws none on .nav-tab, and a row of pictures
+			// above a row of words is the same list twice.
 			printf(
-				'<a href="%s" class="reports-tab%s" data-tab="%s">%s%s</a>',
+				'<a href="%s" class="reports-tab%s" data-tab="%s">%s</a>',
 				esc_url( $url ),
 				esc_attr( $active_class ),
 				esc_attr( $tab_key ),
-				! empty( $tab['icon'] ) ? '<span class="dashicons ' . esc_attr( $tab['icon'] ) . '"></span> ' : '',
 				esc_html( $tab['label'] )
 			);
 		}

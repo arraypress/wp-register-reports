@@ -130,10 +130,20 @@ trait DateRangeHandler {
 
         ?>
         <div class="reports-date-picker" data-report-id="<?php echo esc_attr( $this->id ); ?>">
-            <button type="button" class="reports-date-picker-toggle button">
-                <span class="dashicons dashicons-calendar-alt"></span>
+            <?php
+            /*
+             * No calendar glyph. The button says which range is showing,
+             * which is the thing worth reading, and core puts no icon in
+             * front of its own button text anywhere in the admin.
+             *
+             * The caret stays: it is not decoration but the only cue that
+             * this opens a menu rather than doing something. aria-expanded
+             * says the same thing to anyone not looking at it.
+             */
+            ?>
+            <button type="button" class="reports-date-picker-toggle button" aria-expanded="false">
                 <span class="reports-date-picker-label"><?php echo esc_html( $preset_label ); ?></span>
-                <span class="dashicons dashicons-arrow-down-alt2"></span>
+                <span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>
             </button>
 
             <div class="reports-date-picker-dropdown" style="display: none;">
