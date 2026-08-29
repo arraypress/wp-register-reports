@@ -55,7 +55,52 @@ trait ProgressRenderer {
 			return [];
 		}
 
-		return (array) call_user_func( $callback, $this->date_range, $component );
+		$data = (array) call_user_func( $callback, $this->date_range, $component );
+
+		self::warn_about_the_rows_key( $data );
+
+		return $data;
+	}
+
+	/**
+	 * Say so when the rows arrived under the wrong key.
+	 *
+	 * A breakdown and a stat list both read `rows`. Handing them `items` --
+	 * which is the obvious guess, and what a list of things is usually
+	 * called -- is not an error: the component draws its title, finds nothing
+	 * to list, and shows its empty message. It looks exactly like a period
+	 * with no data in it, which is the answer somebody is often expecting.
+	 *
+	 * @param array<string, mixed> $data What the callback returned.
+	 *
+	 * @return void
+	 */
+	private static function warn_about_the_rows_key( array $data ): void {
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG || ! function_exists( '_doing_it_wrong' ) ) {
+			return;
+		}
+
+		if ( ! empty( $data['rows'] ) || ! empty( $data['value'] ) ) {
+			return;
+		}
+
+		foreach ( [ 'items', 'data', 'results' ] as $wrong ) {
+			if ( empty( $data[ $wrong ] ) ) {
+				continue;
+			}
+
+			_doing_it_wrong(
+				__METHOD__,
+				sprintf(
+					/* translators: %s: the key the rows were given under */
+					esc_html__( 'A component was given its rows as "%s". The key is "rows"; it will render as empty.', 'arraypress' ),
+					esc_html( $wrong )
+				),
+				'1.0.0'
+			);
+
+			return;
+		}
 	}
 
 	/**
@@ -103,8 +148,15 @@ trait ProgressRenderer {
 	 * @return void
 	 */
 	protected function render_progress_bar( array $data, array $component ): void {
-		$value    = (float) ( $data['value'] ?? 0 );
-		$target   = (float) ( $data['target'] ?? $component['target'] ?? 0 );
+		// Kept as given for the formatter, cast only for the arithmetic.
+		// Format::value() reads an int as minor units and a fraction as a
+		// decimal amount, so formatting the cast copy renders every currency
+		// figure a hundred times too large.
+		$raw_value  = $data['value'] ?? 0;
+		$raw_target = $data['target'] ?? $component['target'] ?? 0;
+
+		$value    = (float) $raw_value;
+		$target   = (float) $raw_target;
 		$format   = (string) ( $component['value_format'] ?? 'number' );
 		$currency = (string) ( $component['currency'] ?? 'USD' );
 
@@ -129,8 +181,8 @@ trait ProgressRenderer {
 				sprintf(
 					/* translators: 1: the value reached, 2: the target */
 					__( '%1$s of %2$s', 'arraypress' ),
-					Format::value( $value, $format, $currency ),
-					Format::value( $target, $format, $currency )
+					Format::value( $raw_value, $format, $currency ),
+					Format::value( $raw_target, $format, $currency )
 				)
 			)
 		);
@@ -195,8 +247,18 @@ trait ProgressRenderer {
 		$total    = array_sum( $values ) ?: 1.0;
 
 		foreach ( $rows as $row ) {
-			$row   = (array) $row;
-			$value = (float) ( $row['value'] ?? 0 );
+			$row = (array) $row;
+
+			// Two values, deliberately. The bar maths needs a float; the
+			// formatter must not have one.
+			//
+			// Format::value() tells minor units from a decimal amount by
+			// looking at the value -- an int is minor units, a fraction means
+			// a decimal. Casting first makes every amount look like a
+			// decimal, so 4900 minor units rendered as 4,900.00 rather than
+			// 49.00. A hundred times too large, in the right currency, with
+			// the bar the right length.
+			$number = (float) ( $row['value'] ?? 0 );
 
 			printf(
 				'<li class="reports-breakdown-row">' .
@@ -205,9 +267,9 @@ trait ProgressRenderer {
 				'<span class="reports-breakdown-share">%s</span>' .
 				'<span class="reports-breakdown-value">%s</span></li>',
 				esc_html( (string) ( $row['label'] ?? '' ) ),
-				esc_attr( (string) round( ( $value / $largest ) * 100, 2 ) ),
-				esc_html( number_format_i18n( ( $value / $total ) * 100, 1 ) . '%' ),
-				esc_html( Format::value( $value, $format, $currency ) )
+				esc_attr( (string) round( ( $number / $largest ) * 100, 2 ) ),
+				esc_html( number_format_i18n( ( $number / $total ) * 100, 1 ) . '%' ),
+				esc_html( Format::value( $row['value'] ?? 0, $format, $currency ) )
 			);
 		}
 	}

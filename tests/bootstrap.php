@@ -13,6 +13,13 @@ declare( strict_types=1 );
  * autoloader, so without this the whole suite exits before PHPUnit prints
  * anything — status 0, no output, indistinguishable from a pass.
  */
+// The warnings this library prints for a mistake in configuration only fire
+// under WP_DEBUG, so a suite that left it off would pass whether or not they
+// were there at all.
+if ( ! defined( 'WP_DEBUG' ) ) {
+	define( 'WP_DEBUG', true );
+}
+
 if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', __DIR__ . '/' );
 }

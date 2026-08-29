@@ -74,6 +74,98 @@ final class ComponentTest extends TestCase {
 	}
 
 	/**
+	 * A breakdown does not multiply its money by a hundred.
+	 *
+	 * The bar maths needs a float and the formatter must not have one.
+	 * Format::value() tells minor units from a decimal amount by looking at
+	 * the value, so casting before formatting made every amount look like a
+	 * decimal: 4900 minor units rendered as 4,900.00 instead of 49.00. A
+	 * hundred times too large, in the right currency, with the bar drawn the
+	 * right length -- nothing about the page said it was wrong.
+	 */
+	public function test_a_breakdown_formats_minor_units_as_minor_units(): void {
+		$html = $this->renderer()->draw(
+			'countries',
+			[
+				'type'          => 'breakdown',
+				'title'         => 'By country',
+				'value_format'  => 'currency',
+				'currency'      => 'GBP',
+				'data_callback' => fn() => [ 'rows' => [ [ 'label' => 'GB', 'value' => 4900 ] ] ],
+			]
+		);
+
+		$this->assertStringContainsString( '49.00', $html );
+		$this->assertStringNotContainsString( '4,900.00', $html );
+	}
+
+	/**
+	 * And neither does a progress bar.
+	 */
+	public function test_a_progress_bar_formats_minor_units_as_minor_units(): void {
+		$html = $this->renderer()->draw(
+			'target',
+			[
+				'type'          => 'progress',
+				'title'         => 'Towards target',
+				'value_format'  => 'currency',
+				'currency'      => 'GBP',
+				'data_callback' => fn() => [ 'value' => 4900, 'target' => 10000 ],
+			]
+		);
+
+		$this->assertStringContainsString( '49.00', $html );
+		$this->assertStringContainsString( '100.00', $html );
+		$this->assertStringNotContainsString( '4,900.00', $html );
+	}
+
+	/**
+	 * A breakdown still draws its bars in proportion.
+	 *
+	 * The other half of the same change: the arithmetic keeps its float.
+	 */
+	public function test_a_breakdown_draws_bars_in_proportion(): void {
+		$html = $this->renderer()->draw(
+			'countries',
+			[
+				'type'          => 'breakdown',
+				'data_callback' => fn() => [
+					'rows' => [
+						[ 'label' => 'GB', 'value' => 100 ],
+						[ 'label' => 'US', 'value' => 50 ],
+					],
+				],
+			]
+		);
+
+		// Against the largest, so the top row always fills the width.
+		$this->assertStringContainsString( 'width:100%', $html );
+		$this->assertStringContainsString( 'width:50%', $html );
+	}
+
+	/**
+	 * Rows under the wrong key render as empty, and warn.
+	 *
+	 * The warning itself is not asserted here. A dependency ships its test
+	 * stubs inside its vendor directory, and its no-op `_doing_it_wrong`
+	 * wins the function_exists race against this suite's recording one -- so
+	 * a test watching for the warning would pass whether or not it fired.
+	 * What is pinned is the visible half: nothing is drawn.
+	 */
+	public function test_rows_under_the_wrong_key_render_as_empty(): void {
+		$html = $this->renderer()->draw(
+			'countries',
+			[
+				'type'          => 'breakdown',
+				'data_callback' => fn() => [ 'items' => [ [ 'label' => 'GB', 'value' => 1 ] ] ],
+			]
+		);
+
+		$this->assertStringNotContainsString( 'reports-breakdown-row', $html );
+		$this->assertStringNotContainsString( 'GB', $html );
+	}
+
+	/**
 	 * A tile shows its title and its value.
 	 */
 	public function test_a_tile_shows_its_title_and_value(): void {
