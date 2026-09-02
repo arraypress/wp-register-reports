@@ -760,6 +760,13 @@
         /**
          * Get all filter parameters from URL
          *
+         * A multiselect submits its values as repeated `filter_status[]`
+         * keys. Read one key at a time, each repeat overwrote the last and
+         * the refresh carried a single value where the page had several --
+         * so the numbers changed on refresh for no visible reason. The
+         * bracketed keys are gathered into an array under the bare name,
+         * which jQuery serialises back into the same repeated keys.
+         *
          * @returns {Object}
          */
         getCurrentFilters: function () {
@@ -767,9 +774,20 @@
             const filters = {};
 
             url.searchParams.forEach((value, key) => {
-                if (key.indexOf('filter_') === 0) {
-                    filters[key] = value;
+                if (key.indexOf('filter_') !== 0) {
+                    return;
                 }
+
+                if (key.slice(-2) === '[]') {
+                    const name = key.slice(0, -2);
+
+                    filters[name] = filters[name] || [];
+                    filters[name].push(value);
+
+                    return;
+                }
+
+                filters[key] = value;
             });
 
             return filters;

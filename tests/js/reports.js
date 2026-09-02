@@ -271,6 +271,24 @@ if ( ! ctx.jQuery.calls.length ) {
 
 	is( JSON.stringify( filters ), JSON.stringify( { filter_status: 'complete', filter_gateway: 'stripe' } ), 'getCurrentFilters' );
 
+	// A multiselect arrives as repeated bracketed keys. Read one at a time,
+	// each repeat overwrote the last and the refresh carried one status
+	// where the page showed two.
+	const multi = load( {
+		window: {
+			location: {
+				href: 'https://example.test/wp-admin/admin.php?page=reports'
+					+ '&filter_status%5B%5D=complete&filter_status%5B%5D=refunded&filter_gateway=stripe',
+			},
+		},
+	} );
+
+	is(
+		JSON.stringify( multi.window.ReportsController.getCurrentFilters() ),
+		JSON.stringify( { filter_status: [ 'complete', 'refunded' ], filter_gateway: 'stripe' } ),
+		'getCurrentFilters with a multiselect'
+	);
+
 	// A URL with none of it must not invent values: an empty tab means "the
 	// first one", and a made-up preset would silently change what is shown.
 	const bare = load( { window: { location: { href: 'https://example.test/wp-admin/admin.php?page=reports' } } } );
