@@ -21,6 +21,7 @@ the callbacks that fetch the numbers.
 * Group everything into tabs, each with its own filters
 * Refresh in place when the range or a filter changes, without a page load
 * Offer a CSV export of what is on screen, batched so it does not time out
+* Let each person hide the components they do not read, per tab, from Screen Options
 
 ## Installation
 
