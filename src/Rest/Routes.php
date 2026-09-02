@@ -58,6 +58,14 @@ trait Routes {
 			'args'                => self::get_tab_args(),
 		] );
 
+		// Remember which components a person turned off in Screen Options
+		register_rest_route( self::rest_namespace(), '/screen-options', [
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => [ __CLASS__, 'save_screen_options' ],
+			'permission_callback' => [ __CLASS__, 'check_permissions' ],
+			'args'                => self::get_screen_options_args(),
+		] );
+
 		// Start export
 		register_rest_route( self::rest_namespace(), '/export/start', [
 			'methods'             => WP_REST_Server::CREATABLE,
@@ -119,6 +127,29 @@ trait Routes {
 			'date_end'     => [
 				'type' => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
+			],
+		];
+	}
+
+	/**
+	 * Get screen options endpoint args.
+	 */
+	private static function get_screen_options_args(): array {
+		return [
+			'report_id' => [
+				'required'          => true,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'tab'       => [
+				'required'          => true,
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_key',
+			],
+			'shown'     => [
+				'type'    => 'array',
+				'default' => [],
+				'items'   => [ 'type' => 'string' ],
 			],
 		];
 	}

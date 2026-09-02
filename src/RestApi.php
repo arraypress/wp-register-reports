@@ -19,6 +19,7 @@ use WP_REST_Request;
 use ArrayPress\RegisterReports\Rest\ComponentData;
 use ArrayPress\RegisterReports\Rest\ExportEndpoints;
 use ArrayPress\RegisterReports\Rest\Permissions;
+use ArrayPress\RegisterReports\Rest\Preferences;
 use ArrayPress\RegisterReports\Rest\Routes;
 
 /**
@@ -31,6 +32,7 @@ class RestApi {
 	use ComponentData;
 	use ExportEndpoints;
 	use Permissions;
+	use Preferences;
 	use Routes;
 
 	/**

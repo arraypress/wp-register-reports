@@ -145,6 +145,61 @@
 
             // Refresh
             $(document).on('click', '.reports-refresh-button', this.onRefreshClick.bind(this));
+
+            // Screen Options
+            $(document).on('change', '.reports-screen-options input[type="checkbox"]', this.onScreenOptionChange.bind(this));
+        },
+
+        /**
+         * A Screen Options box was ticked or unticked.
+         *
+         * The component goes the moment the box does, the way core's column
+         * toggles work -- there is no Apply button to find -- and the choice
+         * is saved for this user over REST. Showing one again takes a
+         * reload: a hidden component is left out of the markup on load so
+         * the refresh payload and the screen agree, so there is nothing on
+         * the page to reveal until it is drawn again.
+         *
+         * @param {Event} e - Change event
+         * @returns {void}
+         */
+        onScreenOptionChange: function (e) {
+            const $box = $(e.currentTarget);
+            const $panel = $box.closest('.reports-screen-options');
+            const $component = $('.reports-wrap [data-component-id="' + $box.val() + '"]');
+            const shown = $panel.find('input[type="checkbox"]:checked').map((i, el) => el.value).get();
+
+            if ($component.length) {
+                $component.toggle($box.prop('checked'));
+            }
+
+            $.ajax({
+                url: cfg.restUrl + 'screen-options',
+                method: 'POST',
+                beforeSend: (xhr) => {
+                    xhr.setRequestHeader('X-WP-Nonce', cfg.restNonce);
+                },
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    report_id: $panel.data('report'),
+                    tab: $panel.data('tab'),
+                    shown: shown
+                }),
+                success: () => {
+                    if ($box.prop('checked') && !$component.length) {
+                        window.location.reload();
+                    }
+                },
+                error: () => {
+                    // Put the box and the component back, so the screen
+                    // never shows a choice that was not kept.
+                    $box.prop('checked', !$box.prop('checked'));
+
+                    if ($component.length) {
+                        $component.toggle($box.prop('checked'));
+                    }
+                }
+            });
         },
 
         /* ========================================================================

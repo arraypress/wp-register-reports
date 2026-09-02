@@ -24,7 +24,10 @@ use ArrayPress\RegisterReports\Utils\Runtime;
  * on it, the choice is theirs alone, and it survives a reload.
  *
  * So this is core's checkbox panel, not a panel of our own — same markup, same
- * position, same place people already look for it. What is stored is only the
+ * position, same place people already look for it, and it behaves the way
+ * core's column toggles do: unticking a box hides the thing at once and the
+ * choice is saved for this user over REST, with no Apply button to find. The
+ * panel lists the tab on screen, not every tab. What is stored is only the
  * hidden ones, per user and per report, so a component added later shows up by
  * default rather than being invisible to everyone who ever saved a preference.
  *
@@ -38,10 +41,6 @@ trait ScreenOptions {
 	/**
 	 * Hook the panel up.
 	 *
-	 * On `load-` for this screen, because core reads the panel while it is
-	 * building the page — registering it any later registers it for the next
-	 * request rather than this one.
-	 *
 	 * @return void
 	 */
 	protected function init_screen_options(): void {
@@ -49,68 +48,22 @@ trait ScreenOptions {
 			return;
 		}
 
-		add_action( 'load-' . $this->hook_suffix, [ $this, 'register_screen_options' ] );
 		add_filter( 'screen_settings', [ $this, 'render_screen_options' ], 10, 2 );
 	}
 
 	/**
-	 * Tell core the screen has options, so the tab appears.
-	 *
-	 * @return void
-	 */
-	public function register_screen_options(): void {
-		$screen = get_current_screen();
-
-		if ( ! $screen || $screen->id !== $this->hook_suffix ) {
-			return;
-		}
-
-		$this->save_screen_options();
-	}
-
-	/**
-	 * Store a submitted preference.
-	 *
-	 * Its own nonce, and a capability check: the values are written against
-	 * the current user, so a request that arrives without either is a request
-	 * to change somebody's settings on their behalf.
-	 *
-	 * @return void
-	 */
-	protected function save_screen_options(): void {
-		if ( ! isset( $_POST['reports_screen_options_nonce'] ) ) {
-			return;
-		}
-
-		if ( ! wp_verify_nonce(
-			sanitize_text_field( wp_unslash( $_POST['reports_screen_options_nonce'] ) ),
-			'reports_screen_options_' . $this->id
-		) ) {
-			return;
-		}
-
-		if ( ! current_user_can( (string) ( $this->config['capability'] ?? 'manage_options' ) ) ) {
-			return;
-		}
-
-		$shown  = array_map( 'sanitize_key', (array) ( $_POST['reports_components'] ?? [] ) );
-		$hidden = [];
-
-		foreach ( array_keys( $this->hideable_components() ) as $component_id ) {
-			if ( ! in_array( (string) $component_id, $shown, true ) ) {
-				$hidden[] = (string) $component_id;
-			}
-		}
-
-		// Only the hidden ones are stored. Storing the shown ones instead
-		// would make every component added later invisible to everybody who
-		// had ever saved a preference — which is a bug that arrives weeks
-		// after the change that caused it.
-		update_user_meta( get_current_user_id(), $this->screen_options_key(), $hidden );
-	}
-
-	/**
 	 * The panel's markup, appended to core's own.
+	 *
+	 * Only the tab on screen. The panel is about the page in front of the
+	 * person, and a list of every component on every tab asked them to
+	 * remember what "Top sources" was on a screen that was not showing it.
+	 *
+	 * No form and no Apply button. Core draws the button only for options
+	 * that need one, such as items per page; the boxes it draws for meta
+	 * boxes and columns act as soon as they are ticked, and these do the
+	 * same -- the script hides the component and posts the choice. The
+	 * fieldset carries what the script needs to say which report and tab it
+	 * is speaking for.
 	 *
 	 * @param string $settings What core and other plugins have put there.
 	 * @param mixed  $screen   The screen it is for.
@@ -122,7 +75,8 @@ trait ScreenOptions {
 			return $settings;
 		}
 
-		$components = $this->hideable_components();
+		$tab        = $this->get_current_tab();
+		$components = $this->hideable_components( $tab );
 
 		if ( [] === $components ) {
 			return $settings;
@@ -142,11 +96,12 @@ trait ScreenOptions {
 		}
 
 		return $settings . sprintf(
-			'<fieldset class="metabox-prefs reports-screen-options">' .
-			'<legend>%s</legend>%s%s</fieldset>',
+			'<fieldset class="metabox-prefs reports-screen-options" data-report="%s" data-tab="%s">' .
+			'<legend>%s</legend>%s</fieldset>',
+			esc_attr( $this->id ),
+			esc_attr( $tab ),
 			esc_html__( 'Components', 'arraypress' ),
-			$boxes,
-			wp_nonce_field( 'reports_screen_options_' . $this->id, 'reports_screen_options_nonce', false, false )
+			$boxes
 		);
 	}
 
@@ -157,14 +112,18 @@ trait ScreenOptions {
 	 * offered in a list of checkboxes, and inventing a name for it — "Chart
 	 * 3" — offers a choice nobody can make.
 	 *
+	 * @param string $tab One tab's, or every tab's when empty.
+	 *
 	 * @return array<string, string>
 	 */
-	protected function hideable_components(): array {
+	public function hideable_components( string $tab = '' ): array {
 		$hideable = [];
 
 		// Components are keyed by tab and then by id, so this is two levels
 		// deep rather than one.
-		foreach ( $this->components as $tab_components ) {
+		$tabs = '' === $tab ? $this->components : [ $tab => $this->components[ $tab ] ?? [] ];
+
+		foreach ( $tabs as $tab_components ) {
 			foreach ( (array) $tab_components as $component_id => $component ) {
 				$title = (string) ( $component['title'] ?? '' );
 
@@ -175,6 +134,39 @@ trait ScreenOptions {
 		}
 
 		return $hideable;
+	}
+
+	/**
+	 * Remember which of a tab's components this user has turned off.
+	 *
+	 * Only that tab's ids change hands. The panel shows one tab, so a
+	 * request can only speak for one, and whatever is hidden on the others
+	 * is carried across untouched. Ids the tab does not offer are ignored,
+	 * so a request cannot hide a component that is always shown.
+	 *
+	 * @param string   $tab   The tab the panel was drawn for; every tab when empty.
+	 * @param string[] $shown The ids still ticked.
+	 *
+	 * @return string[] Every id hidden for this user and report, after the change.
+	 */
+	public function save_hidden_components( string $tab, array $shown ): array {
+		$offered = array_map( 'strval', array_keys( $this->hideable_components( $tab ) ) );
+		$shown   = array_map( 'sanitize_key', array_map( 'strval', $shown ) );
+		$hidden  = array_values( array_diff( $this->hidden_components(), $offered ) );
+
+		foreach ( $offered as $component_id ) {
+			if ( ! in_array( $component_id, $shown, true ) ) {
+				$hidden[] = $component_id;
+			}
+		}
+
+		// Only the hidden ones are stored. Storing the shown ones instead
+		// would make every component added later invisible to everybody who
+		// had ever saved a preference — which is a bug that arrives weeks
+		// after the change that caused it.
+		update_user_meta( get_current_user_id(), $this->screen_options_key(), $hidden );
+
+		return $hidden;
 	}
 
 	/**

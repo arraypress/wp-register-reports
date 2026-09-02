@@ -336,6 +336,49 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WP_REST_Server' ) ) {
+	/*
+	 * Only the method constants the routes name; registering them is what
+	 * the route test does, and the stub recorder does not read the methods.
+	 */
+	class WP_REST_Server {
+		const READABLE  = 'GET';
+		const CREATABLE = 'POST';
+		const EDITABLE  = 'POST, PUT, PATCH';
+		const DELETABLE = 'DELETE';
+	}
+}
+
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id() {
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+	/*
+	 * In-memory user meta, keyed by user then key, the way the Screen
+	 * Options preference is stored; reset it between tests.
+	 */
+	function get_user_meta( $user_id, $key, $single = false ) {
+		$value = $GLOBALS['rp_user_meta'][ $user_id ][ $key ] ?? null;
+
+		if ( null === $value ) {
+			return $single ? '' : [];
+		}
+
+		return $single ? $value : [ $value ];
+	}
+}
+
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( $user_id, $key, $value ) {
+		$GLOBALS['rp_user_meta'][ $user_id ][ $key ] = $value;
+
+		return true;
+	}
+}
+
 if ( ! function_exists( 'wp_timezone' ) ) {
 	/**
 	 * The site's timezone.
