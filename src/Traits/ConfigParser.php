@@ -132,12 +132,8 @@ trait ConfigParser {
 		switch ( $component['type'] ) {
 			case 'tile':
 				$component = wp_parse_args( $component, [
-					'icon'            => 'dashicons-chart-bar',
-					'color'           => '',
-					'value_format'    => 'number',  // number, currency, percentage
-					'compare'         => false,     // Show comparison with previous period
-					'compare_label'   => '',
-					'trend_direction' => 'up_good', // up_good, up_bad
+					'icon'         => 'dashicons-chart-bar',
+					'value_format' => 'number',  // number, currency, percentage
 				] );
 				break;
 
@@ -153,7 +149,6 @@ trait ConfigParser {
 					'tension'         => 0.4,
 					'x_axis_label'    => '',
 					'y_axis_label'    => '',
-					'tooltip_format'  => '',
 				] );
 				break;
 
@@ -161,7 +156,6 @@ trait ConfigParser {
 				$component = wp_parse_args( $component, [
 					'columns'       => [],
 					'sortable'      => true,
-					'searchable'    => false,
 					'paginated'     => true,
 					'per_page'      => 10,
 					'empty_message' => __( 'No data available.', 'arraypress' ),

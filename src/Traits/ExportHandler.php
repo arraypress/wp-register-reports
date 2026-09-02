@@ -72,13 +72,13 @@ trait ExportHandler {
 	 *
 	 * @var string[]
 	 */
-	private const FORMULA_STARTS = [ '=', '+', '-', '@', "\t", "\r" ];
+	private const FORMULA_STARTS = [ '=', '+', '-', '@', '|', "\t", "\r" ];
 
 	/**
 	 * Write one row, with every cell defused.
 	 *
 	 * A CSV is a text file until somebody opens it in Excel, at which point a
-	 * cell beginning `=`, `+`, `-` or `@` is a formula and runs. An exported
+	 * cell beginning `=`, `+`, `-`, `@` or `|` is a formula and runs. An exported
 	 * customer name of `=HYPERLINK("http://evil.test","Click")` becomes a
 	 * link in whoever's spreadsheet, and the more interesting formulas reach
 	 * the filesystem or the network. The data came out of a database that
@@ -104,6 +104,13 @@ trait ExportHandler {
 	/**
 	 * One cell, as text rather than as a formula.
 	 *
+	 * A number is left as a number. `-12.50` starts with a formula trigger
+	 * and is also just a refund; a spreadsheet reading it as a formula gets
+	 * -12.50, so there is nothing to defuse. Prefixing it anyway exported
+	 * every negative figure as text, which is a column that will not sum.
+	 * The apostrophe goes on a trigger followed by something that is not a
+	 * number -- `-1+2`, `=SUM(A1)` -- which is the only shape that runs.
+	 *
 	 * @param mixed $value The cell.
 	 *
 	 * @return string
@@ -111,7 +118,11 @@ trait ExportHandler {
 	private static function defuse( $value ): string {
 		$value = is_scalar( $value ) || null === $value ? (string) $value : (string) wp_json_encode( $value );
 
-		return '' !== $value && in_array( $value[0], self::FORMULA_STARTS, true ) ? "'" . $value : $value;
+		if ( '' === $value || is_numeric( $value ) ) {
+			return $value;
+		}
+
+		return in_array( $value[0], self::FORMULA_STARTS, true ) ? "'" . $value : $value;
 	}
 
 	/**

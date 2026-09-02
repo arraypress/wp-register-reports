@@ -90,7 +90,6 @@ trait AssetManager {
 			'restUrl'       => rest_url( RestApi::rest_namespace() . '/' ),
 			'restNonce'     => wp_create_nonce( 'wp_rest' ),
 			'reportId'      => $this->id,
-			'dateRange'     => $this->date_range,
 
 			// The preset a request with no date_preset means. The script had
 			// its own idea of this and so did PHP, so a report configuring a

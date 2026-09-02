@@ -44,9 +44,8 @@ register_reports( 'my-analytics', [
 		'revenue' => [
 			'type'          => 'tile',
 			'tab'           => 'overview',
-			'label'         => __( 'Revenue', 'my-plugin' ),
+			'title'         => __( 'Revenue', 'my-plugin' ),
 			'value_format'  => 'currency',
-			'compare'       => true,
 			'data_callback' => '\MyPlugin\get_revenue',
 		],
 	],

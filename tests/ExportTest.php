@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * A report exports to CSV, and a CSV is a text file right up until somebody
  * opens it in Excel.
  *
- * At that point a cell beginning `=`, `+`, `-` or `@` is a formula and runs.
+ * At that point a cell beginning `=`, `+`, `-`, `@` or `|` is a formula and runs.
  * The rows come out of a database anybody with a checkout form can write to,
  * so an exported customer name is attacker-controlled text landing in a
  * finance person's spreadsheet — which is the whole of CSV injection, and it
@@ -130,9 +130,10 @@ final class ExportTest extends TestCase {
 	public static function formulaProvider(): array {
 		return [
 			'equals'    => [ '=1+1' ],
-			'plus'      => [ '+1' ],
+			'plus'      => [ '+1+2' ],
 			'minus'     => [ '-1+2' ],
 			'at'        => [ '@SUM(A1:A9)' ],
+			'pipe'      => [ '|cmd /c calc' ],
 			'hyperlink' => [ '=HYPERLINK("http://evil.test","Click")' ],
 			'tab'       => [ "\t=1+1" ],
 			'return'    => [ "\r=1+1" ],
@@ -160,15 +161,46 @@ final class ExportTest extends TestCase {
 	}
 
 	/**
-	 * A negative number is defused, because it has to be.
+	 * A negative number is left as a number.
 	 *
-	 * `-5` and `-1+2` are indistinguishable to a spreadsheet: both are
-	 * formulas, and the first happens to evaluate to itself. Defusing both is
-	 * the only safe rule, so this pins the cost rather than pretending there
-	 * is none — an exported refund column reads `'-5`.
+	 * `-5` starts with a formula trigger and is also just a refund. A
+	 * spreadsheet reading it as a formula gets -5, so there is nothing to
+	 * defuse — and defusing it anyway, which this used to do, exported every
+	 * negative figure as text and left the column unable to sum.
+	 *
+	 * @dataProvider numberProvider
+	 *
+	 * @param mixed  $cell     A number, in some form.
+	 * @param string $expected What the spreadsheet reads.
 	 */
-	public function test_a_negative_number_is_defused_too(): void {
-		$this->assertSame( "'-5", $this->cells( [ [ 'change' => '-5' ] ] )[1][0] );
+	#[\PHPUnit\Framework\Attributes\DataProvider( 'numberProvider' )]
+	public function test_a_plain_number_is_left_alone( $cell, string $expected ): void {
+		$this->assertSame( $expected, $this->cells( [ [ 'change' => $cell ] ] )[1][0] );
+	}
+
+	/**
+	 * Numbers that begin with a trigger character.
+	 *
+	 * @return array<string, array{0: mixed, 1: string}>
+	 */
+	public static function numberProvider(): array {
+		return [
+			'negative integer' => [ '-5', '-5' ],
+			'negative decimal' => [ '-12.50', '-12.50' ],
+			'negative float'   => [ -12.5, '-12.5' ],
+			'signed positive'  => [ '+1', '+1' ],
+		];
+	}
+
+	/**
+	 * But a formula that happens to start with a minus is still a formula.
+	 *
+	 * The rule is "a number is a number", not "a minus is fine": `-1+2` is
+	 * not numeric, and it runs.
+	 */
+	public function test_a_formula_behind_a_minus_is_still_defused(): void {
+		$this->assertSame( "'-1+2", $this->cells( [ [ 'change' => '-1+2' ] ] )[1][0] );
+		$this->assertSame( "'-SUM(A1:A9)", $this->cells( [ [ 'change' => '-SUM(A1:A9)' ] ] )[1][0] );
 	}
 
 	/**

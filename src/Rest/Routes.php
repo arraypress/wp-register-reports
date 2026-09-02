@@ -183,8 +183,57 @@ trait Routes {
 			'filters'     => [
 				'type' => 'object',
 				'default' => [],
+				'sanitize_callback' => [ __CLASS__, 'sanitize_filters' ],
 			],
 		];
+	}
+
+	/**
+	 * The filters an export was asked for, reduced to plain values.
+	 *
+	 * A filter's value is whatever the form sent: a string for a select or
+	 * a text box, a list of strings for a multiselect. Nothing else has any
+	 * business here. The values reach a consumer's callbacks as they are,
+	 * and an export writes them to a transient for every later batch to
+	 * read back, so an object arriving with no sanitiser at all was a
+	 * request body stored and replayed untouched.
+	 *
+	 * @param mixed $filters What the request carried.
+	 *
+	 * @return array<string, string|string[]>
+	 */
+	public static function sanitize_filters( $filters ): array {
+		if ( ! is_array( $filters ) ) {
+			return [];
+		}
+
+		$clean = [];
+
+		foreach ( $filters as $key => $value ) {
+			$clean[ sanitize_key( (string) $key ) ] = self::sanitize_filter_value( $value );
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * One filter's value: a string, or a list of them.
+	 *
+	 * Element-wise for a list, because sanitize_text_field() on an array
+	 * warns and returns the word Array -- which then reaches the callback
+	 * as a value nobody chose. Anything deeper than a list of scalars is
+	 * dropped rather than flattened.
+	 *
+	 * @param mixed $value The value.
+	 *
+	 * @return string|string[]
+	 */
+	public static function sanitize_filter_value( $value ) {
+		if ( is_array( $value ) ) {
+			return array_values( array_map( 'sanitize_text_field', array_filter( $value, 'is_scalar' ) ) );
+		}
+
+		return is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
 	}
 
 	/**

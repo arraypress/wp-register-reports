@@ -101,13 +101,15 @@ trait ComponentData {
 			return new WP_Error( 'invalid_tab', __( 'Invalid tab.', 'arraypress' ), [ 'status' => 404 ] );
 		}
 
-		// Collect filter values from request
+		// Collect filter values from request. Element-wise for a list: a
+		// multiselect arrives as one, and sanitize_text_field() on an array
+		// hands the callback the word Array as a value nobody chose.
 		$filters    = [];
 		$all_params = $request->get_params();
 		foreach ( $all_params as $key => $value ) {
 			if ( str_starts_with( $key, 'filter_' ) ) {
 				$filter_key             = substr( $key, 7 ); // Remove 'filter_' prefix
-				$filters[ $filter_key ] = sanitize_text_field( $value );
+				$filters[ $filter_key ] = self::sanitize_filter_value( $value );
 			}
 		}
 		$date_range['filters'] = $filters;
@@ -295,8 +297,16 @@ trait ComponentData {
 	 * @return array<string, mixed>
 	 */
 	private static function progress_payload( array $raw, array $component ): array {
-		$value    = (float) ( $raw['value'] ?? 0 );
-		$target   = (float) ( $raw['target'] ?? $component['target'] ?? 0 );
+		// Kept as given for the formatter, cast only for the arithmetic --
+		// the same two copies the page renderer keeps, for the same reason.
+		// Format::value() reads an int as minor units and a fraction as a
+		// decimal amount, so formatting the cast copy showed $49.00 on load
+		// and $4,900.00 after the first refresh.
+		$raw_value  = $raw['value'] ?? 0;
+		$raw_target = $raw['target'] ?? $component['target'] ?? 0;
+
+		$value    = (float) $raw_value;
+		$target   = (float) $raw_target;
 		$format   = (string) ( $component['value_format'] ?? 'number' );
 		$currency = (string) ( $component['currency'] ?? 'USD' );
 
@@ -311,8 +321,8 @@ trait ComponentData {
 			'formatted_figures' => sprintf(
 				/* translators: 1: the value reached, 2: the target */
 				__( '%1$s of %2$s', 'arraypress' ),
-				Format::value( $value, $format, $currency ),
-				Format::value( $target, $format, $currency )
+				Format::value( $raw_value, $format, $currency ),
+				Format::value( $raw_target, $format, $currency )
 			),
 		];
 	}
@@ -342,14 +352,19 @@ trait ComponentData {
 		$payload = [];
 
 		foreach ( $rows as $row ) {
-			$row   = (array) $row;
+			$row = (array) $row;
+
+			// The bar maths needs a float; the formatter must not have one.
+			// Cast first and every amount looks like a decimal, so a row of
+			// 4900 minor units that read 49.00 on load read 4,900.00 after
+			// the first refresh -- the number appeared to change on its own.
 			$value = (float) ( $row['value'] ?? 0 );
 
 			$payload[] = [
 				'label'           => wp_kses_post( (string) ( $row['label'] ?? '' ) ),
 				'width'           => round( ( $value / $largest ) * 100, 2 ),
 				'share'           => number_format_i18n( ( $value / $total ) * 100, 1 ) . '%',
-				'formatted_value' => Format::value( $value, $format, $currency ),
+				'formatted_value' => Format::value( $row['value'] ?? 0, $format, $currency ),
 			];
 		}
 

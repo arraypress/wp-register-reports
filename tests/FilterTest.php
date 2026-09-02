@@ -11,7 +11,9 @@ namespace ArrayPress\RegisterReports\Tests;
 
 use ArrayPress\RegisterReports\Registry;
 use ArrayPress\RegisterReports\Reports;
+use ArrayPress\RegisterReports\RestApi;
 use PHPUnit\Framework\TestCase;
+use WP_REST_Request;
 
 /**
  * Which filters a tab shows, and where they came from.
@@ -115,6 +117,21 @@ final class FilterTest extends TestCase {
 
 		$this->assertSame( 'gb', $values['country'] ?? null, 'A report-wide filter was not read back.' );
 		$this->assertSame( 'faulty', $values['reason'] ?? null );
+	}
+
+	/**
+	 * A multiselect's values are read back as a list on the page too.
+	 *
+	 * The page and the refresh read the same query string, and they used to
+	 * read it differently: the page ran sanitize_text_field() over whatever
+	 * was there, which on an array is the word Array.
+	 */
+	public function test_a_multiselect_is_read_back_as_a_list(): void {
+		$report = $this->report();
+
+		$_GET['filter_country'] = [ 'gb', '<b>us</b>' ];
+
+		$this->assertSame( [ 'gb', 'us' ], $report->get_current_filters( 'sales' )['country'] ?? null );
 	}
 
 	/**
@@ -225,4 +242,83 @@ final class FilterTest extends TestCase {
 		$this->assertMatchesRegularExpression( '/value="gb"[^>]*selected/', $html );
 	}
 
+	/**
+	 * A type the kit does not have draws nothing, rather than dying.
+	 *
+	 * The kit answers null for a field it cannot build, and handing null to
+	 * its renderer is a type error from inside a printf -- the whole page,
+	 * over one misspelt filter.
+	 */
+	public function test_an_unknown_filter_type_draws_nothing(): void {
+		$this->assertSame( '', $this->control( 'country', [ 'type' => 'nonsense' ] ) );
+	}
+
+	/**
+	 * A multiselect's values reach the callback as a list.
+	 *
+	 * They arrive as an array, and the refresh used to sanitize them with
+	 * sanitize_text_field() -- which warns on an array and returns the word
+	 * Array. So every callback behind a multiselect was handed a value
+	 * nobody chose, and filtered by it.
+	 */
+	public function test_a_multiselect_filter_reaches_the_callback_as_a_list(): void {
+		$seen = null;
+
+		new Reports(
+			'takings',
+			[
+				'tabs'       => [ 'sales' => [ 'label' => 'Sales' ] ],
+				'components' => [
+					'total' => [
+						'type'          => 'tile',
+						'tab'           => 'sales',
+						'data_callback' => static function ( array $range ) use ( &$seen ): array {
+							$seen = $range['filters'];
+
+							return [ 'value' => 1 ];
+						},
+					],
+				],
+			]
+		);
+
+		$request = new WP_REST_Request( 'GET', '/' );
+		$request->set_param( 'report_id', 'takings' );
+		$request->set_param( 'tab', 'sales' );
+		$request->set_param( 'filter_country', [ 'gb', '<b>us</b>', [ 'nested' ] ] );
+		$request->set_param( 'filter_reason', ' faulty ' );
+
+		RestApi::get_all_components_data( $request );
+
+		$this->assertSame( [ 'gb', 'us' ], $seen['country'] ?? null );
+		$this->assertSame( 'faulty', $seen['reason'] ?? null );
+	}
+
+	/**
+	 * An export's filters are reduced to plain values before anything reads them.
+	 *
+	 * The `filters` argument is an object, and an object with no sanitiser
+	 * reached the consumer's callbacks -- and a transient, replayed for every
+	 * batch -- exactly as the request body had it. What survives is a string
+	 * per filter, or a list of strings for a multiselect, under a key that
+	 * could be a filter key.
+	 */
+	public function test_export_filters_are_reduced_to_plain_values(): void {
+		$clean = RestApi::sanitize_filters(
+			[
+				'country'        => '<b>gb</b>',
+				'product'        => [ '1', 2, [ 'deep' => 'no' ], null ],
+				'Odd Key!'       => 'x',
+				'reason'         => [ 'a' => 'b' ],
+				'nothing'        => null,
+			]
+		);
+
+		$this->assertSame( 'gb', $clean['country'] );
+		$this->assertSame( [ '1', '2' ], $clean['product'] );
+		$this->assertSame( 'x', $clean['oddkey'] ?? null, 'The key was not cut down.' );
+		$this->assertSame( [ 'b' ], $clean['reason'], 'A map is a list of its scalar values.' );
+		$this->assertSame( '', $clean['nothing'] );
+		$this->assertSame( [], RestApi::sanitize_filters( 'not an object' ) );
+	}
 }

@@ -171,7 +171,7 @@ final class ConfigTest extends TestCase {
 		$tile   = $parsed->components['default']['sales'];
 
 		$this->assertSame( 'number', $tile['value_format'] );
-		$this->assertFalse( $tile['compare'] );
+		$this->assertSame( 'dashicons-chart-bar', $tile['icon'] );
 		$this->assertSame( 10, $tile['order'] );
 	}
 

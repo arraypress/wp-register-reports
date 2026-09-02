@@ -15,6 +15,7 @@ namespace ArrayPress\RegisterReports\Traits;
 use ArrayPress\FieldKit\Context\ArrayContext;
 use ArrayPress\FieldKit\FieldSet;
 use ArrayPress\FieldKit\Support\PageHeader;
+use ArrayPress\RegisterReports\RestApi;
 
 /**
  * The page around the components: the heading, the tabs, the filter bar.
@@ -263,8 +264,20 @@ trait PageRenderer {
         <div class="reports-filter-bar">
             <form class="reports-filter-form" method="get">
                 <?php
+                // What identifies this page, so the form lands back on it.
+                // A GET form replaces the query string outright, and for a
+                // report under a post type that means losing post_type --
+                // which is losing the screen.
+                foreach ( $this->page_args() as $param => $value ) {
+                    printf(
+                            '<input type="hidden" name="%s" value="%s">',
+                            esc_attr( $param ),
+                            esc_attr( $value )
+                    );
+                }
+
                 // Preserve existing params
-                $preserve = [ 'page', 'tab', 'date_preset', 'date_start', 'date_end' ];
+                $preserve = [ 'tab', 'date_preset', 'date_start', 'date_end' ];
                 foreach ( $preserve as $param ) {
                     if ( isset( $_GET[ $param ] ) ) {
                         printf(
@@ -316,11 +329,15 @@ trait PageRenderer {
         $type  = (string) ( $filter['type'] ?? 'select' );
         $label = (string) ( $filter['label'] ?? ucfirst( $filter_key ) );
 
+        // A list for a multiselect, a string for anything else -- the same
+        // reading the callbacks get, so the control shows what they filtered
+        // by. The helper sanitizes element-wise; the sniff cannot see into a
+        // static method and has to be told.
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $value = isset( $_GET[ $name ] )
-            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-            ? sanitize_text_field( wp_unslash( $_GET[ $name ] ) )
-            : (string) ( $filter['default'] ?? '' );
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            ? RestApi::sanitize_filter_value( wp_unslash( $_GET[ $name ] ) )
+            : ( $filter['default'] ?? '' );
 
         $config = array_merge(
             $filter,
@@ -341,7 +358,15 @@ trait PageRenderer {
             unset( $config['options'][''] );
         }
 
-        $set = new FieldSet( [ $name => $config ], new ArrayContext( [ $name => $value ] ), '' );
+        $set   = new FieldSet( [ $name => $config ], new ArrayContext( [ $name => $value ] ), '' );
+        $field = $set->field( $name );
+
+        // A type the kit does not have is no field at all. Handing null to
+        // the renderer is a type error from inside a printf, which takes
+        // the page with it over one misspelt filter.
+        if ( null === $field ) {
+            return;
+        }
 
         printf(
             '<div class="reports-filter-field reports-filter-%s">' .
@@ -350,7 +375,7 @@ trait PageRenderer {
             esc_attr( $name ),
             esc_html( $label ),
             // The kit escapes as it builds.
-            $set->render_field( $set->field( $name ), '', false ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            $set->render_field( $field, '', false ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         );
     }
 

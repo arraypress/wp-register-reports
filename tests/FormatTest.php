@@ -10,9 +10,12 @@ declare( strict_types=1 );
 namespace ArrayPress\RegisterReports\Tests;
 
 use ArrayPress\RegisterReports\Format;
+use ArrayPress\RegisterReports\Registry;
+use ArrayPress\RegisterReports\Reports;
 use ArrayPress\RegisterReports\RestApi;
 use ArrayPress\RegisterReports\Traits\ComponentRenderer;
 use PHPUnit\Framework\TestCase;
+use WP_REST_Request;
 
 /**
  * Every number a report shows goes through one of these.
@@ -239,6 +242,63 @@ final class FormatTest extends TestCase {
 			'a percentage'      => [ 12.55, 'percentage' ],
 			'nothing'           => [ 0, 'currency' ],
 		];
+	}
+
+	/**
+	 * A breakdown and a progress bar read the same after a refresh too.
+	 *
+	 * The formatter agreeing with itself is not enough when the two paths
+	 * hand it different things. The page passes a row's value as given; the
+	 * refresh cast it to a float first, for the bar maths, and formatted the
+	 * cast copy -- and Format::value() reads a float as a decimal amount. So
+	 * a breakdown row of 4900 minor units read £49.00 on load and £4,900.00
+	 * thirty seconds later, with the bar the right length both times.
+	 */
+	public function test_a_figure_reads_the_same_after_a_refresh(): void {
+		$rows = [ [ 'label' => 'GB', 'value' => 4900 ], [ 'label' => 'US', 'value' => 100 ] ];
+
+		new Reports(
+			'takings',
+			[
+				'tabs'       => [ 'main' => [ 'label' => 'Main' ] ],
+				'components' => [
+					'countries' => [
+						'type'          => 'breakdown',
+						'tab'           => 'main',
+						'value_format'  => 'currency',
+						'currency'      => 'GBP',
+						'data_callback' => static fn(): array => [ 'rows' => $rows ],
+					],
+					'target'    => [
+						'type'          => 'progress',
+						'tab'           => 'main',
+						'value_format'  => 'currency',
+						'currency'      => 'GBP',
+						'data_callback' => static fn(): array => [ 'value' => 4900, 'target' => 10000 ],
+					],
+				],
+			]
+		);
+
+		try {
+			$request = new WP_REST_Request( 'GET', '/' );
+			$request->set_param( 'report_id', 'takings' );
+			$request->set_param( 'tab', 'main' );
+
+			$components = RestApi::get_all_components_data( $request )->get_data()['components'];
+		} finally {
+			Registry::instance()->unregister( 'takings' );
+		}
+
+		$page = Format::value( 4900, 'currency', 'GBP' );
+
+		$this->assertSame( '£49.00', $page, 'The page itself is wrong, which is a different test.' );
+		$this->assertSame( $page, $components['countries']['rows'][0]['formatted_value'] ?? null, 'A breakdown row changed on refresh.' );
+		$this->assertSame( '£49.00 of £100.00', $components['target']['formatted_figures'] ?? null, 'A progress bar changed on refresh.' );
+
+		// And the arithmetic still had its float.
+		$this->assertSame( 100.0, $components['countries']['rows'][0]['width'] ?? null );
+		$this->assertSame( 49.0, $components['target']['percent'] ?? null );
 	}
 
 	/**

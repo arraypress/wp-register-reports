@@ -48,10 +48,7 @@ trait TabManager {
 	 * @return string
 	 */
 	protected function get_tab_url( string $tab ): string {
-		$args = [
-			'page' => $this->config['menu_slug'],
-			'tab'  => $tab,
-		];
+		$args = [ 'tab' => $tab ];
 
 		// Preserve date range parameters
 		if ( ! empty( $_GET['date_preset'] ) ) {
@@ -64,7 +61,73 @@ trait TabManager {
 			$args['date_end'] = sanitize_text_field( wp_unslash( $_GET['date_end'] ) );
 		}
 
-		return add_query_arg( $args, admin_url( 'admin.php' ) );
+		return $this->page_url( $args );
+	}
+
+	/**
+	 * The URL of the report's own admin page.
+	 *
+	 * This was hardcoded to admin.php, which is right only for a report with
+	 * no parent. WordPress puts a submenu page under whatever file its parent
+	 * slug names -- a report under `edit.php?post_type=book` lives at
+	 * `edit.php?post_type=book&page=my-report`, and asking for
+	 * `admin.php?page=my-report` gets "Sorry, you are not allowed to access
+	 * this page." Every tab link was built that way, so a report anywhere
+	 * but the top level had tabs that refused to load.
+	 *
+	 * The rule is core's own: a parent slug naming a .php file is the file;
+	 * anything else is a plugin page under admin.php. Query arguments in the
+	 * parent slug are part of the address and are kept.
+	 *
+	 * @param array<string, string> $args Extra query arguments.
+	 *
+	 * @return string
+	 */
+	protected function page_url( array $args = [] ): string {
+		$parent = (string) ( $this->config['parent_slug'] ?? '' );
+		$file   = 'admin.php';
+		$extra  = [];
+
+		if ( '' !== $parent ) {
+			$parts = explode( '?', $parent, 2 );
+
+			// A parent that is itself a plugin page -- 'my-plugin' -- is
+			// served by admin.php like any other.
+			if ( str_contains( $parts[0], '.php' ) ) {
+				$file = $parts[0];
+
+				if ( isset( $parts[1] ) ) {
+					parse_str( $parts[1], $extra );
+				}
+			}
+		}
+
+		return add_query_arg(
+			array_merge( $extra, [ 'page' => $this->config['menu_slug'] ], $args ),
+			admin_url( $file )
+		);
+	}
+
+	/**
+	 * The query arguments that identify this page.
+	 *
+	 * Everything page_url() puts in the query string, read back out of it:
+	 * `page`, plus whatever the parent menu carries, which for a report
+	 * under a post type is `post_type`. A GET form replaces the query string
+	 * outright, so the filter form has to write these back as hidden inputs
+	 * or they are gone the moment it submits -- and losing post_type is
+	 * losing the screen. Derived rather than listed a second time, so the
+	 * form cannot disagree with the tab links about where the page is.
+	 *
+	 * @return array<string, string>
+	 */
+	protected function page_args(): array {
+		$args  = [];
+		$query = (string) wp_parse_url( $this->page_url(), PHP_URL_QUERY );
+
+		parse_str( $query, $args );
+
+		return array_map( 'strval', $args );
 	}
 
 	/**

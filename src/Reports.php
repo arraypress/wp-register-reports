@@ -191,8 +191,12 @@ class Reports {
         foreach ( $tab_filters as $filter_key => $filter ) {
             $param_name = 'filter_' . $filter_key;
 
+            // The same reading the refresh gives them, so a multiselect's
+            // list reaches the callback as a list on the first render too.
+            // The helper sanitizes element-wise; the sniff cannot see into
+            // a static method and has to be told.
             if ( isset( $_GET[ $param_name ] ) ) {
-                $values[ $filter_key ] = sanitize_text_field( wp_unslash( $_GET[ $param_name ] ) );
+                $values[ $filter_key ] = RestApi::sanitize_filter_value( wp_unslash( $_GET[ $param_name ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
             } else {
                 $values[ $filter_key ] = $filter['default'] ?? '';
             }

@@ -75,6 +75,12 @@ if ( ! function_exists( 'add_query_arg' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	function wp_parse_url( $url, $component = -1 ) {
+		return parse_url( (string) $url, $component );
+	}
+}
+
 if ( ! function_exists( 'trailingslashit' ) ) {
 	function trailingslashit( $value ) {
 		return rtrim( (string) $value, '/\\' ) . '/';

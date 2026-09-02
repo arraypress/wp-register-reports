@@ -77,10 +77,7 @@ add_action( 'init', function () {
 				'title'          => __( 'Total Revenue', 'my-plugin' ),
 				'tab'            => 'overview',
 				'icon'           => 'dashicons-money-alt',
-				'color'          => 'green',
 				'value_format'   => 'currency',
-				'compare'        => true,
-				'trend_direction'=> 'up_is_good',
 				'data_callback'  => 'my_get_revenue_data',
 			],
 
@@ -89,9 +86,7 @@ add_action( 'init', function () {
 				'title'          => __( 'Orders', 'my-plugin' ),
 				'tab'            => 'overview',
 				'icon'           => 'dashicons-cart',
-				'color'          => 'blue',
 				'value_format'   => 'number',
-				'compare'        => true,
 				'data_callback'  => 'my_get_orders_count_data',
 			],
 
@@ -100,9 +95,7 @@ add_action( 'init', function () {
 				'title'          => __( 'Avg. Order Value', 'my-plugin' ),
 				'tab'            => 'overview',
 				'icon'           => 'dashicons-chart-line',
-				'color'          => 'purple',
 				'value_format'   => 'currency',
-				'compare'        => true,
 				'data_callback'  => 'my_get_aov_data',
 			],
 
@@ -111,9 +104,7 @@ add_action( 'init', function () {
 				'title'          => __( 'New Customers', 'my-plugin' ),
 				'tab'            => 'overview',
 				'icon'           => 'dashicons-admin-users',
-				'color'          => 'orange',
 				'value_format'   => 'number',
-				'compare'        => true,
 				'data_callback'  => 'my_get_new_customers_data',
 			],
 
@@ -174,7 +165,6 @@ add_action( 'init', function () {
 					'revenue'  => __( 'Revenue', 'my-plugin' ),
 				],
 				'sortable'      => true,
-				'searchable'    => true,
 				'paginated'     => true,
 				'per_page'      => 15,
 				'data_callback' => 'my_get_top_products_data',
@@ -243,7 +233,6 @@ add_action( 'init', function () {
 					'last_order'   => __( 'Last Order', 'my-plugin' ),
 				],
 				'sortable'      => true,
-				'searchable'    => true,
 				'paginated'     => true,
 				'per_page'      => 20,
 				'data_callback' => 'my_get_top_customers_data',
@@ -390,9 +379,9 @@ function my_get_revenue_data( array $date_range, array $config ): array {
 	// In real implementation, query WooCommerce orders
 	// This is example data
 	return [
-		'value'         => 125430.50,
-		'compare_value' => 98250.00,
-		'change'        => 27.7,
+		'value'          => 125430.50,
+		'previous_value' => 98250.00,
+		'change'         => 27.7,
 	];
 }
 
@@ -401,9 +390,9 @@ function my_get_revenue_data( array $date_range, array $config ): array {
  */
 function my_get_orders_count_data( array $date_range, array $config ): array {
 	return [
-		'value'         => 847,
-		'compare_value' => 720,
-		'change'        => 17.6,
+		'value'          => 847,
+		'previous_value' => 720,
+		'change'         => 17.6,
 	];
 }
 
@@ -412,9 +401,9 @@ function my_get_orders_count_data( array $date_range, array $config ): array {
  */
 function my_get_aov_data( array $date_range, array $config ): array {
 	return [
-		'value'         => 148.15,
-		'compare_value' => 136.46,
-		'change'        => 8.6,
+		'value'          => 148.15,
+		'previous_value' => 136.46,
+		'change'         => 8.6,
 	];
 }
 
@@ -423,9 +412,9 @@ function my_get_aov_data( array $date_range, array $config ): array {
  */
 function my_get_new_customers_data( array $date_range, array $config ): array {
 	return [
-		'value'         => 234,
-		'compare_value' => 189,
-		'change'        => 23.8,
+		'value'          => 234,
+		'previous_value' => 189,
+		'change'         => 23.8,
 	];
 }
 

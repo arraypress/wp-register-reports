@@ -56,11 +56,6 @@ trait MenuBuilder {
         }
 
         // And screen options. Here rather than in init_hooks() because both
-        // hang off load-{$hook_suffix}, and the hook suffix is what
-        // registering the menu has just returned.
-        $this->init_screen_options();
-
-        // And screen options. Here rather than in init_hooks() because both
         // of these hang off load-{$hook_suffix}, and the hook suffix is what
         // registering the menu just returned.
         $this->init_screen_options();
