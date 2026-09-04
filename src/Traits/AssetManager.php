@@ -59,20 +59,20 @@ trait AssetManager {
 		// to core's .privacy-settings-header and the tabs stack one per line.
 		( new Assets() )->enqueue();
 
-		wp_enqueue_composer_style(
+		arraypress_enqueue_composer_style(
 			Runtime::handle(),
 			__FILE__,
 			'css/reports.css'
 		);
 
-		wp_enqueue_composer_script(
+		arraypress_enqueue_composer_script(
 			Runtime::handle( 'chartjs' ),
 			__FILE__,
 			'js/chart.js',
 			[]
 		);
 
-		wp_enqueue_composer_script(
+		arraypress_enqueue_composer_script(
 			Runtime::handle(),
 			__FILE__,
 			'js/reports.js',
