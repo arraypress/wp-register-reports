@@ -15,7 +15,7 @@
     "arraypress/wp-composer-assets": "dev-main",
     "arraypress/wp-date-utils": "dev-main",
     "arraypress/wp-field-kit": "dev-main",
-    "arraypress/wp-money": "^1.0"
+    "arraypress/wp-money": "dev-main"
   },
   "autoload": {
     "psr-4": {
